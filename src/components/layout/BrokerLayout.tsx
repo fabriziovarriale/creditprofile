@@ -2,14 +2,56 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Header from './Header';
+import { Briefcase, FileText, Home, PieChart, Users } from 'lucide-react';
 
 const BrokerLayout = () => {
+  const sidebarItems = [
+    { icon: Home, label: 'Dashboard', path: '/broker/dashboard' },
+    { icon: Users, label: 'Clienti', path: '/broker/clients' },
+    { icon: FileText, label: 'Documenti', path: '/broker/documents' },
+    { icon: PieChart, label: 'Report', path: '/broker/reports' },
+    { icon: Briefcase, label: 'Prestiti', path: '/broker/loans' }
+  ];
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header />
-      <main className="flex-1">
-        <Outlet />
-      </main>
+    <div className="flex min-h-screen bg-background">
+      {/* Sidebar */}
+      <nav className="hidden md:flex flex-col w-64 bg-primary text-primary-foreground p-4">
+        <div className="flex items-center mb-8 pt-4">
+          <span className="text-xl font-bold">Credit Profile</span>
+        </div>
+        <ul className="space-y-2">
+          {sidebarItems.map((item, index) => (
+            <li key={index}>
+              <a 
+                href={item.path}
+                className="flex items-center space-x-3 p-3 rounded-md hover:bg-primary-foreground/10 transition-colors"
+              >
+                <item.icon className="h-5 w-5" />
+                <span>{item.label}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-auto pb-4">
+          <div className="flex items-center p-3">
+            <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+              <span className="text-secondary-foreground text-sm font-medium">AB</span>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium">Admin Broker</p>
+              <p className="text-xs text-primary-foreground/70">admin@example.com</p>
+            </div>
+          </div>
+        </div>
+      </nav>
+      
+      <div className="flex flex-col flex-1">
+        <Header />
+        <main className="flex-1 p-6">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 };

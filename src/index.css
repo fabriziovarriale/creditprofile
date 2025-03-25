@@ -5,47 +5,47 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 210 40% 12%;
+    --background: 210 92% 95%;
+    --foreground: 198 88% 29%;
 
     --card: 0 0% 100%;
-    --card-foreground: 210 40% 12%;
+    --card-foreground: 198 88% 29%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 210 40% 12%;
+    --popover-foreground: 198 88% 29%;
 
-    --primary: 210 100% 50%;
+    --primary: 198 88% 29%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 30% 96%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 203 42% 45%;
+    --secondary-foreground: 0 0% 100%;
 
     --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted-foreground: 198 30% 40%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 101 46% 40%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 198 20% 80%;
+    --input: 198 20% 80%;
+    --ring: 198 88% 29%;
 
     --radius: 0.75rem;
 
-    --credit-50: 220 90% 98%;
-    --credit-100: 220 90% 92%;
-    --credit-200: 220 90% 84%;
-    --credit-300: 220 90% 74%;
-    --credit-400: 220 90% 64%;
-    --credit-500: 220 90% 54%;
-    --credit-600: 220 90% 44%;
-    --credit-700: 220 90% 36%;
-    --credit-800: 220 90% 28%;
-    --credit-900: 220 90% 22%;
-    --credit-950: 220 90% 16%;
+    --credit-50: 84 100% 95%;
+    --credit-100: 84 100% 90%;
+    --credit-200: 84 100% 80%;
+    --credit-300: 84 95% 70%;
+    --credit-400: 84 85% 60%;
+    --credit-500: 84 100% 50%;
+    --credit-600: 84 70% 45%;
+    --credit-700: 101 46% 40%;
+    --credit-800: 101 46% 30%;
+    --credit-900: 101 46% 25%;
+    --credit-950: 101 46% 15%;
   }
 }
 
