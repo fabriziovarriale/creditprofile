@@ -1,9 +1,11 @@
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import BrokerLayout from './components/layout/BrokerLayout';
 import ClientLayout from './components/layout/ClientLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import NotFound from './pages/NotFound';
+import Index from './pages/Index';
 import './App.css';
 import { Toaster } from './components/ui/toaster';
 
@@ -11,7 +13,7 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Index />} />
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
         

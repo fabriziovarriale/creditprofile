@@ -1,468 +1,538 @@
 
 import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  ArrowLeft, 
+  FileText, 
   User, 
+  Home, 
+  Briefcase, 
   Phone, 
   Mail, 
-  MapPin, 
-  FileText, 
-  BarChart3,
-  ShieldCheck,
-  AlertCircle,
-  Download,
-  Plus
+  Calendar, 
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  Download
 } from "lucide-react";
-import AnimatedCard from '@/components/ui/AnimatedCard';
-import StatusBadge from '@/components/ui/StatusBadge';
-import DocumentCard, { DocumentProps } from '@/components/ui/DocumentCard';
-import { toast } from 'sonner';
+import StatusBadge from "@/components/ui/StatusBadge";
+import { Badge } from "@/components/ui/badge";
+import DocumentCard from "@/components/ui/DocumentCard";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "@/hooks/use-toast";
 
-// Mock client data
-const mockClient = {
-  id: '1',
-  name: 'Marco Rossi',
-  email: 'marco.rossi@example.com',
-  phone: '+39 345 1234567',
-  address: 'Via Roma 123, Milano',
-  birthDate: '15/04/1985',
-  occupation: 'Impiegato',
-  income: '€35,000',
-  documents: [
-    {
-      id: 'doc1',
-      name: 'Carta d\'identità',
-      type: 'PDF',
-      size: 1200000,
-      uploadDate: new Date(2023, 10, 15),
-      status: 'validated',
-      comments: 'Documento verificato',
-      url: '#'
-    },
-    {
-      id: 'doc2',
-      name: 'Busta paga Gennaio 2023',
-      type: 'PDF',
-      size: 850000,
-      uploadDate: new Date(2023, 11, 5),
-      status: 'pending',
-      url: '#'
-    },
-    {
-      id: 'doc3',
-      name: 'Estratto conto bancario',
-      type: 'PDF',
-      size: 1500000,
-      uploadDate: new Date(2023, 11, 10),
-      status: 'rejected',
-      comments: 'Il documento non è leggibile, si prega di ricaricare una versione più chiara',
-      url: '#'
-    }
-  ],
-  creditScore: {
-    score: 750,
-    maxScore: 850,
-    risk: 'Basso',
-    paymentHistory: 'Ottima',
-    creditUtilization: '20%',
-    debtToIncome: '28%',
-    recommendations: [
-      'Mantenere il basso utilizzo del credito',
-      'Continuare con i pagamenti puntuali'
-    ]
-  }
-};
+// Define the type for status to match StatusBadge component
+type StatusType = 'pending' | 'validated' | 'rejected';
+
+// Define the document type to match DocumentCard requirements
+interface DocumentProps {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  uploadDate: Date;
+  status: StatusType;
+  url: string;
+  comments?: string;
+}
 
 const ClientProfile = () => {
-  const { clientId } = useParams<{ clientId: string }>();
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'documents' | 'creditScore'>('overview');
-  const [documents, setDocuments] = useState<DocumentProps[]>(mockClient.documents);
+  const { clientId } = useParams();
+  const [activeTab, setActiveTab] = useState("overview");
 
-  const handleStatusChange = (doc: DocumentProps, newStatus: 'validated' | 'pending' | 'rejected') => {
-    const updatedDocs = documents.map(d => 
-      d.id === doc.id ? { ...d, status: newStatus } : d
-    );
-    setDocuments(updatedDocs);
-    toast.success(`Stato del documento aggiornato a ${newStatus}`);
+  // Mock client data
+  const client = {
+    id: clientId || "1",
+    name: "Marco Rossi",
+    email: "marco.rossi@example.com",
+    phone: "+39 123 456 7890",
+    address: "Via Roma 123, Milano",
+    occupation: "Impiegato",
+    employer: "Azienda SRL",
+    yearlyIncome: "€48,000",
+    birthDate: "15/05/1985",
+    creditScore: 720,
+    documents: 8,
+    validatedDocuments: 5,
+    pendingDocuments: 2,
+    rejectedDocuments: 1,
+    lastActivity: "10/11/2023",
+    notes: "Cliente interessato a mutuo per prima casa. Ha già un prestito auto in corso."
   };
 
-  const handleDownload = (doc: DocumentProps) => {
-    toast.success(`Download di ${doc.name} iniziato`);
-    // In a real app, this would trigger a file download
+  // Mock documents
+  const documents: DocumentProps[] = [
+    {
+      id: "1",
+      name: "Carta di identità.pdf",
+      type: "PDF",
+      size: 1240000,
+      uploadDate: new Date(2023, 10, 10),
+      status: "validated",
+      url: "#",
+    },
+    {
+      id: "2",
+      name: "Busta paga settembre.pdf",
+      type: "PDF",
+      size: 890000,
+      uploadDate: new Date(2023, 10, 12),
+      status: "validated",
+      url: "#",
+    },
+    {
+      id: "3",
+      name: "Contratto di lavoro.pdf",
+      type: "PDF",
+      size: 1450000,
+      uploadDate: new Date(2023, 10, 15),
+      status: "pending",
+      url: "#",
+    },
+    {
+      id: "4",
+      name: "Estratto conto.pdf",
+      type: "PDF",
+      size: 2100000,
+      uploadDate: new Date(2023, 10, 18),
+      status: "rejected",
+      url: "#",
+      comments: "Documento non leggibile, si prega di ricaricare"
+    },
+    {
+      id: "5",
+      name: "Modello ISEE.pdf",
+      type: "PDF",
+      size: 1870000,
+      uploadDate: new Date(2023, 10, 20),
+      status: "validated",
+      url: "#",
+    }
+  ];
+
+  // Mock credit report data
+  const creditReport = {
+    score: 720,
+    maxScore: 950,
+    status: "Good",
+    factors: [
+      "Payment history: Excellent",
+      "Credit utilization: Good",
+      "Credit age: Average",
+      "Recent inquiries: Good"
+    ],
+    loans: [
+      {
+        type: "Auto Loan",
+        amount: "€15,000",
+        remaining: "€8,600",
+        status: "In good standing"
+      }
+    ],
+    history: [
+      {
+        date: "10/2023",
+        score: 720
+      },
+      {
+        date: "09/2023",
+        score: 715
+      },
+      {
+        date: "08/2023",
+        score: 710
+      },
+      {
+        date: "07/2023",
+        score: 705
+      }
+    ]
   };
 
-  const calculateProgressPercentage = () => {
-    const totalDocs = documents.length;
-    const validatedDocs = documents.filter(d => d.status === 'validated').length;
-    return Math.round((validatedDocs / totalDocs) * 100);
+  const handleDownloadReport = () => {
+    toast({
+      title: "Rapporto in download",
+      description: "Il rapporto completo è in fase di download"
+    });
+  };
+
+  const handleAddNote = () => {
+    toast({
+      title: "Nota aggiunta",
+      description: "La nota è stata aggiunta con successo"
+    });
   };
 
   return (
-    <div className="container px-4 py-8 max-w-6xl mx-auto">
-      <div className="mb-6 animate-fade-in">
-        <Link 
-          to="/broker" 
-          className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Torna alla Dashboard
-        </Link>
+    <div className="container px-4 py-6 max-w-7xl mx-auto">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">{client.name}</h1>
+          <p className="text-muted-foreground mt-1">ID Cliente: {client.id}</p>
+        </div>
+        <div className="flex gap-2 mt-4 md:mt-0">
+          <Button onClick={handleDownloadReport} variant="outline" className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            Scarica Report
+          </Button>
+          <Button>Modifica Profilo</Button>
+        </div>
+      </div>
+
+      <Tabs defaultValue="overview" className="mb-8" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-6">
+          <TabsTrigger value="overview">Panoramica</TabsTrigger>
+          <TabsTrigger value="documents">Documenti</TabsTrigger>
+          <TabsTrigger value="credit">Profilo Creditizio</TabsTrigger>
+          <TabsTrigger value="notes">Note</TabsTrigger>
+        </TabsList>
         
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-          <h1 className="text-3xl font-bold">Profilo Cliente</h1>
-        </div>
-      </div>
+        <TabsContent value="overview" className="mt-0">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <User className="h-5 w-5 text-primary" />
+                  Informazioni Personali
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="space-y-2">
+                  <div className="flex flex-row justify-between">
+                    <dt className="text-sm font-medium text-muted-foreground">Nome</dt>
+                    <dd className="text-sm">{client.name}</dd>
+                  </div>
+                  <div className="flex flex-row justify-between">
+                    <dt className="text-sm font-medium text-muted-foreground">Email</dt>
+                    <dd className="text-sm">{client.email}</dd>
+                  </div>
+                  <div className="flex flex-row justify-between">
+                    <dt className="text-sm font-medium text-muted-foreground">Telefono</dt>
+                    <dd className="text-sm">{client.phone}</dd>
+                  </div>
+                  <div className="flex flex-row justify-between">
+                    <dt className="text-sm font-medium text-muted-foreground">Data di nascita</dt>
+                    <dd className="text-sm">{client.birthDate}</dd>
+                  </div>
+                  <div className="flex flex-row justify-between">
+                    <dt className="text-sm font-medium text-muted-foreground">Indirizzo</dt>
+                    <dd className="text-sm">{client.address}</dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
 
-      {/* Client Overview Card */}
-      <AnimatedCard className="mb-6 p-6 animate-fade-in animate-delay-100">
-        <div className="flex flex-col lg:flex-row gap-6">
-          <div className="flex-shrink-0">
-            <div className="h-24 w-24 rounded-full bg-credit-100 flex items-center justify-center text-credit-700 text-3xl font-medium">
-              {mockClient.name.charAt(0)}
-            </div>
-          </div>
-          
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-            <div>
-              <h2 className="text-2xl font-bold mb-4">{mockClient.name}</h2>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Mail className="h-4 w-4" />
-                  <span>{mockClient.email}</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Phone className="h-4 w-4" />
-                  <span>{mockClient.phone}</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  <span>{mockClient.address}</span>
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-2">Informazioni Personali</h3>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
-                <dt className="text-sm text-muted-foreground">Data di nascita</dt>
-                <dd className="text-sm font-medium">{mockClient.birthDate}</dd>
-                
-                <dt className="text-sm text-muted-foreground">Occupazione</dt>
-                <dd className="text-sm font-medium">{mockClient.occupation}</dd>
-                
-                <dt className="text-sm text-muted-foreground">Reddito annuale</dt>
-                <dd className="text-sm font-medium">{mockClient.income}</dd>
-              </dl>
-            </div>
-          </div>
-          
-          <div className="flex-shrink-0 flex flex-col items-center justify-center bg-gray-50 p-4 rounded-lg">
-            <div className="mb-2">
-              <p className="text-sm text-center text-muted-foreground">Progressione Pratica</p>
-              <div className="relative h-20 w-20 flex items-center justify-center">
-                <svg className="h-20 w-20 -rotate-90" viewBox="0 0 100 100">
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="45"
-                    fill="none"
-                    stroke="#E9ECEF"
-                    strokeWidth="10"
-                  />
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="45"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="10"
-                    strokeDasharray="283"
-                    strokeDashoffset={283 - (283 * calculateProgressPercentage()) / 100}
-                    className="text-primary transition-all duration-1000 ease-out"
-                  />
-                </svg>
-                <span className="absolute text-xl font-bold">{calculateProgressPercentage()}%</span>
-              </div>
-            </div>
-            <div className="text-sm text-center">
-              <p className="font-medium">
-                {calculateProgressPercentage() === 100 
-                  ? 'Pratica completata' 
-                  : 'Pratica in corso'}
-              </p>
-            </div>
-          </div>
-        </div>
-      </AnimatedCard>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <Briefcase className="h-5 w-5 text-primary" />
+                  Informazioni Lavorative
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="space-y-2">
+                  <div className="flex flex-row justify-between">
+                    <dt className="text-sm font-medium text-muted-foreground">Occupazione</dt>
+                    <dd className="text-sm">{client.occupation}</dd>
+                  </div>
+                  <div className="flex flex-row justify-between">
+                    <dt className="text-sm font-medium text-muted-foreground">Datore di lavoro</dt>
+                    <dd className="text-sm">{client.employer}</dd>
+                  </div>
+                  <div className="flex flex-row justify-between">
+                    <dt className="text-sm font-medium text-muted-foreground">Reddito annuo</dt>
+                    <dd className="text-sm">{client.yearlyIncome}</dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
 
-      {/* Tabs Navigation */}
-      <div className="flex border-b mb-6 animate-fade-in animate-delay-200">
-        <button
-          className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
-            selectedTab === 'overview'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-          onClick={() => setSelectedTab('overview')}
-        >
-          Panoramica
-        </button>
-        <button
-          className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
-            selectedTab === 'documents'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-          onClick={() => setSelectedTab('documents')}
-        >
-          Documenti
-        </button>
-        <button
-          className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
-            selectedTab === 'creditScore'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-          onClick={() => setSelectedTab('creditScore')}
-        >
-          Profilo Creditizio
-        </button>
-      </div>
-
-      {/* Tab Content */}
-      <div className="animate-fade-in animate-delay-300">
-        {selectedTab === 'overview' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <AnimatedCard>
-              <div className="flex flex-col h-full">
-                <h3 className="font-semibold mb-4 flex items-center">
-                  <FileText className="mr-2 h-5 w-5 text-primary" />
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
                   Stato Documenti
-                </h3>
-                <div className="space-y-3 flex-1">
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">Documenti Caricati</span>
-                    <span className="font-medium">{documents.length}</span>
+                    <span className="text-sm text-muted-foreground">Documenti totali</span>
+                    <span className="font-medium">{client.documents}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Documenti Validati</span>
-                    <span className="font-medium">{documents.filter(d => d.status === 'validated').length}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Documenti in Attesa</span>
-                    <span className="font-medium">{documents.filter(d => d.status === 'pending').length}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Documenti Rifiutati</span>
-                    <span className="font-medium">{documents.filter(d => d.status === 'rejected').length}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedTab('documents')}
-                  className="mt-4 text-primary hover:text-primary/80 text-sm font-medium"
-                >
-                  Vedi tutti i documenti
-                </button>
-              </div>
-            </AnimatedCard>
-
-            <AnimatedCard>
-              <div className="flex flex-col h-full">
-                <h3 className="font-semibold mb-4 flex items-center">
-                  <BarChart3 className="mr-2 h-5 w-5 text-primary" />
-                  Profilo Creditizio
-                </h3>
-                <div className="space-y-3 flex-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Punteggio</span>
-                    <span className="font-medium">{mockClient.creditScore.score}/{mockClient.creditScore.maxScore}</span>
-                  </div>
-                  <div className="h-2 w-full bg-gray-200 rounded-full">
-                    <div 
-                      className="h-2 rounded-full bg-green-500" 
-                      style={{ width: `${(mockClient.creditScore.score / mockClient.creditScore.maxScore) * 100}%` }}
-                    ></div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Livello di Rischio</span>
-                    <span className="font-medium text-green-600">{mockClient.creditScore.risk}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Rapporto Debiti/Reddito</span>
-                    <span className="font-medium">{mockClient.creditScore.debtToIncome}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedTab('creditScore')}
-                  className="mt-4 text-primary hover:text-primary/80 text-sm font-medium"
-                >
-                  Vedi profilo completo
-                </button>
-              </div>
-            </AnimatedCard>
-
-            <AnimatedCard>
-              <div className="flex flex-col h-full">
-                <h3 className="font-semibold mb-4 flex items-center">
-                  <ShieldCheck className="mr-2 h-5 w-5 text-primary" />
-                  Raccomandazioni
-                </h3>
-                <div className="space-y-3 flex-1">
-                  <ul className="space-y-2">
-                    {mockClient.creditScore.recommendations.map((rec, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <span className="h-5 w-5 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <CheckCircle className="h-3 w-3 text-green-600" />
-                        </span>
-                        <span className="text-sm">{rec}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="mt-4 p-3 bg-yellow-50 rounded-md">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
-                    <p className="text-sm text-yellow-800">
-                      Il cliente potrebbe beneficiare di una consulenza su come migliorare ulteriormente il proprio profilo creditizio.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </AnimatedCard>
-          </div>
-        )}
-
-        {selectedTab === 'documents' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Documenti del Cliente</h2>
-              <button
-                className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Richiedi Documento
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {documents.map((doc, index) => (
-                <div 
-                  key={doc.id} 
-                  className={`animate-fade-in animate-delay-${index < 5 ? (index + 1) * 100 : 500}`}
-                >
-                  <DocumentCard 
-                    document={doc} 
-                    onDownload={handleDownload}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {selectedTab === 'creditScore' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <AnimatedCard className="lg:col-span-2">
-                <h3 className="text-lg font-semibold mb-4">Punteggio Creditizio</h3>
-                <div className="space-y-6">
-                  <div className="flex justify-center items-center">
-                    <div className="relative">
-                      <div className="h-48 w-48 rounded-full border-8 border-gray-100 flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="text-4xl font-bold">{mockClient.creditScore.score}</div>
-                          <div className="text-sm text-muted-foreground">su {mockClient.creditScore.maxScore}</div>
-                        </div>
-                      </div>
-                      <svg 
-                        className="absolute top-0 left-0 h-48 w-48 -rotate-90" 
-                        viewBox="0 0 100 100"
-                      >
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r="46"
-                          fill="none"
-                          stroke="none"
-                        />
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r="46"
-                          fill="none"
-                          stroke="#4CAF50"
-                          strokeWidth="8"
-                          strokeDasharray="289"
-                          strokeDashoffset={289 - (289 * mockClient.creditScore.score / mockClient.creditScore.maxScore)}
-                          strokeLinecap="round"
-                        />
-                      </svg>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <span className="text-sm">Validati: {client.validatedDocuments}</span>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-yellow-500" />
+                      <span className="text-sm">In attesa: {client.pendingDocuments}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-red-500" />
+                      <span className="text-sm">Rifiutati: {client.rejectedDocuments}</span>
+                    </div>
+                  </div>
+                  <div className="pt-2">
+                    <Button variant="outline" className="w-full text-sm" size="sm" onClick={() => setActiveTab("documents")}>
+                      Gestisci Documenti
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="mb-6">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg font-medium flex items-center gap-2">
+                <User className="h-5 w-5 text-primary" />
+                Punteggio Creditizio
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col md:flex-row gap-8 items-center">
+                <div className="relative h-36 w-36">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-3xl font-bold">{creditReport.score}</div>
+                      <div className="text-sm text-muted-foreground">su {creditReport.maxScore}</div>
+                    </div>
+                  </div>
+                  {/* This would be a circular progress indicator */}
+                  <div className="h-full w-full rounded-full border-8 border-primary/30">
+                    <div className="h-full w-full rounded-full border-8 border-t-primary border-r-primary border-l-transparent border-b-transparent transform -rotate-45"></div>
+                  </div>
+                </div>
+                
+                <div className="flex-1 space-y-3">
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">Stato</h4>
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      {creditReport.status}
+                    </Badge>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 bg-green-50 rounded-lg border border-green-100">
-                      <div className="text-sm text-green-800 mb-1">Livello di Rischio</div>
-                      <div className="text-lg font-semibold text-green-900">{mockClient.creditScore.risk}</div>
-                    </div>
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
-                      <div className="text-sm text-blue-800 mb-1">Storico Pagamenti</div>
-                      <div className="text-lg font-semibold text-blue-900">{mockClient.creditScore.paymentHistory}</div>
-                    </div>
-                    <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
-                      <div className="text-sm text-purple-800 mb-1">Utilizzo Credito</div>
-                      <div className="text-lg font-semibold text-purple-900">{mockClient.creditScore.creditUtilization}</div>
-                    </div>
+                  <div>
+                    <h4 className="text-sm font-medium mb-1">Fattori principali</h4>
+                    <ul className="text-sm space-y-1">
+                      {creditReport.factors.map((factor, i) => (
+                        <li key={i} className="text-muted-foreground">{factor}</li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
-              </AnimatedCard>
-              
-              <AnimatedCard>
-                <h3 className="text-lg font-semibold mb-4">Raccomandazioni</h3>
-                <div className="space-y-4">
-                  {mockClient.creditScore.recommendations.map((rec, index) => (
-                    <div key={index} className="p-3 bg-green-50 rounded-md">
-                      <div className="flex items-start gap-2">
-                        <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-                        <p className="text-sm text-green-800">{rec}</p>
+                
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium mb-2">Prestiti attivi</h4>
+                  {creditReport.loans.map((loan, i) => (
+                    <div key={i} className="border rounded-md p-3 mb-2">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium">{loan.type}</span>
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          {loan.status}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between mt-2 text-sm">
+                        <span className="text-muted-foreground">Importo totale:</span>
+                        <span>{loan.amount}</span>
+                      </div>
+                      <div className="flex justify-between mt-1 text-sm">
+                        <span className="text-muted-foreground">Residuo:</span>
+                        <span>{loan.remaining}</span>
                       </div>
                     </div>
                   ))}
-                  <div className="p-3 bg-blue-50 rounded-md">
-                    <div className="flex items-start gap-2">
-                      <ShieldCheck className="h-5 w-5 text-blue-600 flex-shrink-0" />
-                      <p className="text-sm text-blue-800">
-                        Il profilo creditizio complessivo è solido e supporta una richiesta di mutuo.
-                      </p>
+                  <Button variant="outline" className="w-full text-sm mt-2" size="sm" onClick={() => setActiveTab("credit")}>
+                    Visualizza Rapporto Completo
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg font-medium flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                Documenti Recenti
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {documents.slice(0, 3).map((doc) => (
+                  <div key={doc.id} className="flex items-center justify-between py-2">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <FileText className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{doc.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Caricato: {doc.uploadDate.toLocaleDateString('it-IT')}
+                        </p>
+                      </div>
+                    </div>
+                    <StatusBadge status={doc.status} />
+                  </div>
+                ))}
+                <div className="pt-2">
+                  <Button variant="outline" className="w-full text-sm" size="sm" onClick={() => setActiveTab("documents")}>
+                    Vedi Tutti i Documenti
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="documents" className="mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                Documenti del Cliente
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {documents.map((doc) => (
+                  <DocumentCard key={doc.id} document={doc} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="credit" className="mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl">Rapporto Creditizio</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Punteggio e Storico</h3>
+                  <div className="flex flex-col md:flex-row gap-6">
+                    <div className="flex-1">
+                      <div className="relative h-48 w-48 mx-auto">
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="text-center">
+                            <div className="text-4xl font-bold">{creditReport.score}</div>
+                            <div className="text-sm text-muted-foreground">su {creditReport.maxScore}</div>
+                          </div>
+                        </div>
+                        {/* This would be a circular progress indicator */}
+                        <div className="h-full w-full rounded-full border-12 border-primary/20">
+                          <div className="h-full w-full rounded-full border-12 border-t-primary border-r-primary border-l-transparent border-b-transparent transform -rotate-45"></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-sm font-medium mb-2">Storico Punteggio</h4>
+                      <div className="h-48 bg-muted/20 rounded-md p-4 flex items-end">
+                        {/* This would be a chart */}
+                        <div className="w-full h-full flex items-end justify-between">
+                          {creditReport.history.map((item, i) => (
+                            <div key={i} className="flex flex-col items-center gap-1">
+                              <div 
+                                className="w-6 bg-primary rounded-t-sm" 
+                                style={{
+                                  height: `${(item.score / creditReport.maxScore) * 100}%`
+                                }}
+                              ></div>
+                              <span className="text-xs text-muted-foreground">{item.date}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </AnimatedCard>
-            </div>
-            
-            <AnimatedCard>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Rapporto Profilo Creditizio</h3>
-                <button
-                  className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Scarica Report Completo
-                </button>
+                
+                <Separator />
+                
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Fattori che influenzano il punteggio</h3>
+                  <div className="space-y-4">
+                    {creditReport.factors.map((factor, i) => (
+                      <div key={i} className="p-4 border rounded-md">
+                        <p>{factor}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Prestiti e Finanziamenti</h3>
+                  <div className="space-y-4">
+                    {creditReport.loans.map((loan, i) => (
+                      <Card key={i}>
+                        <CardContent className="p-4">
+                          <div className="flex justify-between items-center mb-2">
+                            <h4 className="font-semibold">{loan.type}</h4>
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              {loan.status}
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Importo totale</p>
+                              <p className="font-medium">{loan.amount}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Importo residuo</p>
+                              <p className="font-medium">{loan.remaining}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="flex justify-end">
+                  <Button onClick={handleDownloadReport}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Scarica Rapporto Completo
+                  </Button>
+                </div>
               </div>
-              <p className="text-muted-foreground mb-4">
-                Questo report include un'analisi dettagliata del profilo creditizio del cliente, inclusi i fattori che influenzano il punteggio e le raccomandazioni per migliorarlo.
-              </p>
-              <div className="p-4 border rounded-md bg-gray-50">
-                <p className="text-center text-muted-foreground">
-                  [Placeholder per il report dettagliato]
-                </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="notes" className="mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl">Note</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="p-4 border rounded-md">
+                  <p className="mb-2">{client.notes}</p>
+                  <p className="text-sm text-muted-foreground">Aggiunto il: 10/11/2023</p>
+                </div>
+                
+                <div className="flex flex-col space-y-2">
+                  <textarea 
+                    className="min-h-[100px] w-full border rounded-md p-3"
+                    placeholder="Aggiungi una nuova nota..."
+                  />
+                  <div className="self-end">
+                    <Button onClick={handleAddNote}>Aggiungi Nota</Button>
+                  </div>
+                </div>
               </div>
-            </AnimatedCard>
-          </div>
-        )}
-      </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
