@@ -1,21 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Lock, Mail, ArrowLeft } from 'lucide-react';
-import Logo from '@/components/ui/Logo';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from 'sonner';
+import { Lock, Mail } from 'lucide-react';
 
 const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -39,19 +31,11 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <Logo className="justify-center mb-6" iconSize={8} textSize="text-2xl" />
-        <Link 
-          to="/" 
-          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-8"
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Torna alla Home
-        </Link>
-        <h2 className="text-center text-3xl font-bold text-gray-900">
-          Accedi alla Piattaforma Broker
+        <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
+          Accedi alla Piattaforma
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Gestisci documenti, analizza credit score e genera report professionali
+          Gestisci i tuoi clienti e genera report professionali
         </p>
       </div>
 
@@ -80,8 +64,6 @@ const Login = () => {
                   required
                   className="appearance-none block w-full pl-10 px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                   placeholder="nome@esempio.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
             </div>
@@ -102,8 +84,6 @@ const Login = () => {
                   required
                   className="appearance-none block w-full pl-10 px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                   placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
             </div>
@@ -132,7 +112,7 @@ const Login = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Accesso in corso...' : 'Accedi'}
               </button>
@@ -145,38 +125,23 @@ const Login = () => {
                 <div className="w-full border-t border-gray-300" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Hai bisogno di aiuto?</span>
+                <span className="px-2 bg-white text-gray-500">Non hai un account?</span>
               </div>
             </div>
 
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
-                Contatta il nostro team di supporto
-              </p>
-              <a
-                href="mailto:support@example.com"
-                className="text-sm font-medium text-primary hover:text-primary/80"
+            <div className="mt-6">
+              <Link
+                to="/register"
+                className="w-full flex justify-center py-2 px-4 border border-primary rounded-lg shadow-sm text-sm font-medium text-primary hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
               >
-                support@example.com
-              </a>
+                Registrati
+              </Link>
             </div>
           </div>
-
-          <CardFooter className="flex flex-col gap-4">
-            <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" type="submit" disabled={isLoading}>
-              {isLoading ? 'Accesso in corso...' : 'Accedi'}
-            </Button>
-            <p className="text-xs text-center text-gray-400">
-              Non hai un account?{' '}
-              <Link to="/signup" className="underline hover:text-blue-400">
-                Registrati qui
-              </Link>
-            </p>
-          </CardFooter>
         </div>
       </div>
     </div>
   );
 };
 
-export default Login;
+export default Login; 

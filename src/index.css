@@ -1,39 +1,44 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 210 92% 95%;
-    --foreground: 198 88% 29%;
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
 
     --card: 0 0% 100%;
-    --card-foreground: 198 88% 29%;
+    --card-foreground: 0 0% 0%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 198 88% 29%;
+    --popover-foreground: 0 0% 0%;
 
-    --primary: 198 88% 29%;
+    --primary: 222 47% 11%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 203 42% 45%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 0%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 198 30% 40%;
+    --muted: 0 0% 98%;
+    --muted-foreground: 0 0% 45%;
 
-    --accent: 101 46% 40%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 0%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 198 20% 80%;
-    --input: 198 20% 80%;
-    --ring: 198 88% 29%;
+    --success: 142 72% 29%;
+    --success-foreground: 0 0% 100%;
 
-    --radius: 0.75rem;
+    --warning: 45 93% 47%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 0 0% 92%;
+    --input: 0 0% 100%;
+    --ring: 0 0% 0%;
+
+    --radius: 0.35rem;
 
     --credit-50: 84 100% 95%;
     --credit-100: 84 100% 90%;
@@ -46,6 +51,13 @@
     --credit-800: 101 46% 30%;
     --credit-900: 101 46% 25%;
     --credit-950: 101 46% 15%;
+
+    --sidebar: 0 0% 0%;
+    --sidebar-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    /* rimuovi o commenta tutto il blocco dark */
   }
 }
 
@@ -55,8 +67,9 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
-    font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
 
   html {
@@ -109,4 +122,14 @@
 }
 .animate-delay-1000 {
   animation-delay: 1000ms;
+}
+
+/* Aggiungi questa classe per il search input */
+.search-input {
+  @apply bg-white text-black border-gray-200;
+}
+
+/* Rimuovi l'hover dalle righe della tabella */
+.no-hover-row:hover {
+  @apply bg-transparent;
 }

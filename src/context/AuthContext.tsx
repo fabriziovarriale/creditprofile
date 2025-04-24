@@ -1,114 +1,148 @@
-
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabaseClient';
+import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
-type UserType = 'client' | 'broker';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
+// Definizione dei tipi
+// Potresti voler rimuovere la tua interfaccia User locale o adattarla
+// all'oggetto User restituito da Supabase. Per ora la lascio commentata.
+// type UserRole = 'broker' | 'client';
+// interface User {
+//   id: string;
+//   name: string; // Potresti doverlo prendere da user_metadata
+//   email: string;
+//   role: UserRole; // Il ruolo potrebbe non venire direttamente da Supabase Auth
+// }
 
 interface AuthContextType {
-  user: User | null;
-  userType: UserType | null;
-  isLoading: boolean;
-  signIn: (email: string, password: string, type: UserType) => Promise<void>;
-  signOut: () => void;
+  user: SupabaseUser | null;
+  session: Session | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  // Rimuovi impersonificazione se non più necessaria con Supabase reale
+  // impersonateClient: (clientId: string) => Promise<void>;
+  // isImpersonating: boolean;
+  // originalUser: SupabaseUser | null;
+  // stopImpersonating: () => void;
+  isAuthenticated: boolean;
 }
+
+// Rimuovi gli account di test e i mock client se usi Supabase
+// const TEST_ACCOUNTS = { ... };
+// const mockClients = [ ... ];
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock users for demo
-const MOCK_USERS = {
-  client: {
-    id: 'client-123',
-    name: 'Marco Rossi',
-    email: 'cliente@example.com',
-    password: 'password',
-  },
-  broker: {
-    id: 'broker-456',
-    name: 'Giuseppe Verdi',
-    email: 'broker@example.com',
-    password: 'password',
-  },
-};
+interface AuthProviderProps {
+  children: ReactNode;
+}
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [userType, setUserType] = useState<UserType | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  // Rimuovi stati di impersonificazione se non li usi più
+  // const [isImpersonating, setIsImpersonating] = useState(false);
+  // const [originalUser, setOriginalUser] = useState<SupabaseUser | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check for stored authentication
-    const storedUser = localStorage.getItem('creditProfileUser');
-    const storedUserType = localStorage.getItem('creditProfileUserType') as UserType | null;
-    
-    if (storedUser && storedUserType) {
-      setUser(JSON.parse(storedUser));
-      setUserType(storedUserType);
-    }
-    
-    setIsLoading(false);
-  }, []);
-
-  const signIn = async (email: string, password: string, type: UserType) => {
-    setIsLoading(true);
-    
-    try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const mockUser = type === 'client' ? MOCK_USERS.client : MOCK_USERS.broker;
-      
-      if (email.toLowerCase() === mockUser.email.toLowerCase() && password === mockUser.password) {
-        const userData = {
-          id: mockUser.id,
-          name: mockUser.name,
-          email: mockUser.email,
-        };
-        
-        setUser(userData);
-        setUserType(type);
-        
-        // Store in localStorage
-        localStorage.setItem('creditProfileUser', JSON.stringify(userData));
-        localStorage.setItem('creditProfileUserType', type);
-        
-        toast.success(`Benvenuto, ${mockUser.name}!`);
-        navigate(type === 'client' ? '/client' : '/broker');
-      } else {
-        toast.error('Credenziali non valide. Riprova.');
+    // Fetch Session e Listener onAuthStateChange (INVARIATI - Già corretti per Supabase)
+    const fetchSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error("Error fetching session:", error);
       }
-    } catch (error) {
-      toast.error('Si è verificato un errore durante l\'accesso.');
-      console.error('Login error:', error);
-    } finally {
-      setIsLoading(false);
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    };
+
+    fetchSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log("Auth Event:", event, session);
+        const currentUser = session?.user ?? null;
+        setSession(session);
+        setUser(currentUser);
+
+        if (event !== 'INITIAL_SESSION') {
+            setLoading(false);
+        }
+
+        if (event === 'SIGNED_OUT') {
+          console.log("User signed out, redirecting to /");
+          navigate('/');
+        } else if (event === 'SIGNED_IN') {
+           console.log("User signed in, redirecting to /broker/dashboard");
+           navigate('/broker/dashboard');
+        } else if (event === 'INITIAL_SESSION') {
+           if (loading) {
+               setLoading(false);
+           }
+        }
+      }
+    );
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [navigate, loading]);
+
+  // --- NUOVA FUNZIONE LOGIN CON SUPABASE ---
+  const login = async (email: string, password: string) => {
+    setLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password,
+    });
+
+    if (error) {
+      console.error("Errore Login Supabase:", error);
+      toast.error("Credenziali non valide: " + error.message);
+      setLoading(false);
+      throw new Error(error.message);
+    }
+
+    if (data.session && data.user) {
+       console.log("Login Supabase riuscito:", data.user.email);
+       toast.success("Login effettuato con successo!");
+    } else {
+        setLoading(false);
+        toast.error("Errore imprevisto durante il login.");
+        throw new Error("Login non riuscito per un motivo sconosciuto.");
     }
   };
+  // --- FINE NUOVA FUNZIONE LOGIN ---
 
-  const signOut = () => {
-    setUser(null);
-    setUserType(null);
-    localStorage.removeItem('creditProfileUser');
-    localStorage.removeItem('creditProfileUserType');
-    navigate('/');
-    toast.success('Logout effettuato con successo');
+  const logout = async () => {
+    setLoading(true);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Error logging out:", error);
+      toast.error("Errore durante il logout: " + error.message);
+      setLoading(false);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, userType, isLoading, signIn, signOut }}>
+    <AuthContext.Provider value={{
+      user,
+      session,
+      loading,
+      login,
+      logout,
+      isAuthenticated: !!user
+    }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => {
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');

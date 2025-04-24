@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   PlusCircle, 
@@ -122,10 +121,10 @@ const ClientDocuments = () => {
   };
 
   return (
-    <div className="container px-4 py-8 max-w-6xl mx-auto">
+    <div className="container px-4 py-8">
+      <h1 className="text-3xl font-bold mb-6">I Miei Documenti</h1>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 animate-fade-in">
         <div>
-          <h1 className="text-3xl font-bold">I Tuoi Documenti</h1>
           <p className="text-muted-foreground mt-1">Gestisci i documenti per la tua richiesta di mutuo</p>
         </div>
         <button
