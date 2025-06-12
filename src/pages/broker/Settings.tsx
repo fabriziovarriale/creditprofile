@@ -1,194 +1,313 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext'; // Per ottenere dati utente
-import { supabase } from '@/lib/supabaseClient'; // Importa supabase client
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useNavigate } from 'react-router-dom';
+import { 
+  User,
+  Bell,
+  Lock,
+  Save,
+  AlertCircle,
+  Loader2,
+  Settings
+} from "lucide-react";
+import { useAuth } from '@/components/providers/SupabaseProvider';
+import { Button } from '@/components/ui/button';
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { User } from 'lucide-react'; // Icona utente
 
 const SettingsPage = () => {
-  const { user } = useAuth(); // Ottieni l'utente corrente dal contesto Auth
+  const { profile, supabase, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Stati COPIATI da ProfilePage.tsx per i dati del profilo
-  const [loadingProfile, setLoadingProfile] = useState(true);
-  const [profileError, setProfileError] = useState<string | null>(null);
-  const [fullName, setFullName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [agentCode, setAgentCode] = useState('');
-  const [email, setEmail] = useState(user?.email || ''); // Email da auth (non modificabile)
-  const [isSubmittingProfile, setIsSubmittingProfile] = useState(false);
+  const [profileData, setProfileData] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    company: '',
+    position: '',
+  });
 
-  // useEffect COPIATO da ProfilePage.tsx per fetch dati broker
   useEffect(() => {
-    const fetchBrokerProfile = async () => {
-      if (!user) {
-        setProfileError("Utente non trovato per caricare le impostazioni.");
-        setLoadingProfile(false);
-        return;
-      }
+    if (profile) {
+      setProfileData({
+        first_name: profile.first_name || '',
+        last_name: profile.last_name || '',
+        phone: profile.phone || '',
+        company: profile.company || '',
+        position: profile.position || '',
+      });
+    }
+  }, [profile]);
 
-      setLoadingProfile(true);
-      setProfileError(null);
+  const [notificationSettings, setNotificationSettings] = useState({
+    email_notifications: true,
+    sms_notifications: false,
+    new_leads: true,
+    document_updates: true,
+    report_generation: true,
+  });
 
-      const { data, error } = await supabase
-        .from('brokers')
-        .select('full_name, phone_number, agent_code') // Seleziona le colonne necessarie
-        .eq('id', user.id)
-        .single();
+  const [securitySettings, setSecuritySettings] = useState({
+    two_factor_auth: false,
+    session_timeout: 30,
+  });
 
-      if (error && error.code !== 'PGRST116') { // Ignora errore "nessuna riga trovata"
-        console.error("Errore fetch profilo broker in Impostazioni:", error);
-        setProfileError("Impossibile caricare i dati per le impostazioni.");
-        // Fallback sull'email se disponibile, o stringa vuota
-        setFullName(user.user_metadata?.name || ''); // Se user_metadata esiste nel tuo tipo User
-        setEmail(user.email || '');
-      } else if (data) {
-        setFullName(data.full_name || user.user_metadata?.name || ''); // Prendi da brokers, fallback su metadata
-        setPhoneNumber(data.phone_number || '');
-        setAgentCode(data.agent_code || '');
-        setEmail(user.email || ''); // Email sempre da auth
-      } else {
-         // Nessun record trovato, usa fallback
-         setFullName(user.user_metadata?.name || '');
-         setEmail(user.email || '');
-      }
-      setLoadingProfile(false);
-    };
+  const handleProfileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setProfileData(prev => ({ ...prev, [id]: value }));
+  };
 
-    fetchBrokerProfile();
-  }, [user]); // Riesegui se l'oggetto user cambia
-
-  // handleProfileUpdate COPIATO da ProfilePage.tsx per aggiornare i dati broker
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-    setIsSubmittingProfile(true);
+    if (!profile || !supabase) {
+      setError("Impossibile aggiornare il profilo: utente non autenticato o servizio non disponibile.");
+      toast.error("Impossibile aggiornare il profilo.");
+      return;
+    }
 
-    const { data, error } = await supabase
-      .from('brokers')
-      .update({
-        full_name: fullName,
-        phone_number: phoneNumber || null,
-        agent_code: agentCode || null,
-      })
-      .eq('id', user.id)
-      .select()
-      .single();
+    setIsSubmitting(true);
+    setError(null);
 
-    setIsSubmittingProfile(false);
+    const updatedFields: Partial<typeof profileData> = {};
+    if (profileData.first_name !== (profile.first_name || '')) updatedFields.first_name = profileData.first_name;
+    if (profileData.last_name !== (profile.last_name || '')) updatedFields.last_name = profileData.last_name;
+    if (profileData.phone !== (profile.phone || '')) updatedFields.phone = profileData.phone;
+    if (profileData.company !== (profile.company || '')) updatedFields.company = profileData.company;
+    if (profileData.position !== (profile.position || '')) updatedFields.position = profileData.position;
 
-    if (error) {
-      console.error("Errore aggiornamento profilo broker da Impostazioni:", error);
-      toast.error("Errore durante il salvataggio delle impostazioni: " + error.message);
-    } else {
-      toast.success("Impostazioni profilo salvate con successo!");
-      // Aggiorna i dati locali se necessario, anche se un refresh li caricherebbe
-      if(data) {
-          setFullName(data.full_name || '');
-          setPhoneNumber(data.phone_number || '');
-          setAgentCode(data.agent_code || '');
-      }
+    if (Object.keys(updatedFields).length === 0) {
+      toast.info("Nessuna modifica da salvare.");
+      setIsSubmitting(false);
+      return;
+    }
+    
+    try {
+      const { error: updateError } = await supabase
+        .from('users')
+        .update(updatedFields)
+        .eq('id', profile.id);
+
+      if (updateError) throw updateError;
+
+      toast.success("Profilo aggiornato con successo");
+    } catch (err: any) {
+      console.error("Errore nell'aggiornamento del profilo:", err);
+      setError(err.message || "Impossibile aggiornare il profilo. Riprova.");
+      toast.error(err.message || "Errore nell'aggiornamento del profilo");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Visualizzazione Loading / Errore
-  if (loadingProfile) {
-     return <div className="p-6 text-gray-300 flex-1 flex items-center justify-center">Caricamento impostazioni...</div>;
+  const handleNotificationChange = (key: string, value: boolean) => {
+    setNotificationSettings(prev => ({
+      ...prev,
+      [key]: value
+    }));
+    toast.info("Impostazioni di notifica aggiornate (mock).");
+  };
+
+  const handleSecurityChange = (key: string, value: boolean | number) => {
+    setSecuritySettings(prev => ({
+      ...prev,
+      [key]: value
+    }));
+    toast.info("Impostazioni di sicurezza aggiornate (mock).");
+  };
+  
+  if (authLoading && !profile) {
+    return (
+      <div className="flex h-[calc(100vh-theme(spacing.16))] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
-  if (profileError) {
-      return <div className="p-6 text-red-400 flex-1 flex items-center justify-center">{profileError}</div>;
+  
+  if (!profile) {
+    return (
+        <div className="p-6 space-y-6 text-center">
+            <p>Profilo non disponibile. Effettua il login.</p>
+            <Button onClick={() => navigate('/auth/login')}>Vai al Login</Button>
+        </div>
+    );
   }
 
   return (
-    <div className="flex-1 flex flex-col">
-      {/* Header Pagina (Opzionale, puoi adattarlo) */}
-      <div className="h-16 bg-black flex items-center justify-between px-6 border-b border-gray-700 flex-shrink-0">
-        <h1 className="text-gray-100 font-semibold text-lg">Impostazioni Profilo</h1>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-foreground">Impostazioni</h1>
       </div>
 
-      {/* Contenuto Pagina */}
-      <div className="flex-1 overflow-y-auto p-6 bg-gray-950 space-y-6">
+      <Tabs defaultValue="profile" className="space-y-6">
+        <TabsList className="bg-card border border-border grid w-full grid-cols-1 sm:grid-cols-3 sm:max-w-md">
+          <TabsTrigger value="profile" className="data-[state=active]:bg-muted data-[state=active]:text-foreground">
+            <User className="w-4 h-4 mr-2" />
+            Profilo
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="data-[state=active]:bg-muted data-[state=active]:text-foreground">
+            <Bell className="w-4 h-4 mr-2" />
+            Notifiche
+          </TabsTrigger>
+          <TabsTrigger value="security" className="data-[state=active]:bg-muted data-[state=active]:text-foreground">
+            <Lock className="w-4 h-4 mr-2" />
+            Sicurezza
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Card Informazioni Profilo (COPIATA da ProfilePage.tsx) */}
-        <Card className="bg-black border-gray-700 text-gray-100">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5" />
-              Informazioni Personali e Professionali
-            </CardTitle>
-            <CardDescription className="text-gray-400">
-              Modifica i tuoi dati visualizzati nel profilo.
-            </CardDescription>
-          </CardHeader>
-          <form onSubmit={handleProfileUpdate}>
-            <CardContent className="space-y-4">
-              {/* Nome Completo */}
-              <div className="grid gap-2">
-                <Label htmlFor="settings-fullname" className="text-gray-400">Nome Completo</Label>
-                <Input
-                  id="settings-fullname"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="bg-gray-800 border-gray-600 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
-                />
+        <TabsContent value="profile">
+          <Card className="p-6 bg-card border-border">
+            <h2 className="text-xl font-semibold mb-6 text-foreground">Informazioni Personali</h2>
+            <form onSubmit={handleProfileUpdate} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="first_name" className="text-sm font-medium text-foreground/90">Nome</Label>
+                  <Input
+                    id="first_name"
+                    value={profileData.first_name}
+                    onChange={handleProfileInputChange}
+                    className="bg-background border-input placeholder:text-muted-foreground focus:border-primary"
+                    placeholder="Mario"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="last_name" className="text-sm font-medium text-foreground/90">Cognome</Label>
+                  <Input
+                    id="last_name"
+                    value={profileData.last_name}
+                    onChange={handleProfileInputChange}
+                    className="bg-background border-input placeholder:text-muted-foreground focus:border-primary"
+                    placeholder="Rossi"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="phone" className="text-sm font-medium text-foreground/90">Telefono</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={profileData.phone}
+                    onChange={handleProfileInputChange}
+                    className="bg-background border-input placeholder:text-muted-foreground focus:border-primary"
+                    placeholder="+39 123 4567890"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="company" className="text-sm font-medium text-foreground/90">Azienda (Opzionale)</Label>
+                  <Input
+                    id="company"
+                    value={profileData.company}
+                    onChange={handleProfileInputChange}
+                    className="bg-background border-input placeholder:text-muted-foreground focus:border-primary"
+                  />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label htmlFor="position" className="text-sm font-medium text-foreground/90">Posizione (Opzionale)</Label>
+                  <Input
+                    id="position"
+                    value={profileData.position}
+                    onChange={handleProfileInputChange}
+                    className="bg-background border-input placeholder:text-muted-foreground focus:border-primary"
+                  />
+                </div>
               </div>
-               {/* Telefono */}
-               <div className="grid gap-2">
-                 <Label htmlFor="settings-phone" className="text-gray-400">Telefono</Label>
-                 <Input
-                   id="settings-phone"
-                   type="tel"
-                   value={phoneNumber}
-                   onChange={(e) => setPhoneNumber(e.target.value)}
-                   className="bg-gray-800 border-gray-600 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
-                 />
-               </div>
-               {/* Codice Agente */}
-               <div className="grid gap-2">
-                 <Label htmlFor="settings-agentcode" className="text-gray-400">Codice Agente</Label>
-                 <Input
-                   id="settings-agentcode"
-                   value={agentCode}
-                   onChange={(e) => setAgentCode(e.target.value)}
-                   className="bg-gray-800 border-gray-600 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
-                 />
-               </div>
-              {/* Email (Non modificabile qui) */}
-              <div className="grid gap-2">
-                <Label htmlFor="settings-email" className="text-gray-400">Email (Login)</Label>
-                <Input
-                  id="settings-email"
-                  type="email"
-                  value={email}
-                  disabled
-                  readOnly // Aggiungi readOnly per chiarezza semantica
-                  className="bg-gray-800 border-gray-600 text-gray-100 disabled:opacity-70 cursor-not-allowed"
-                />
-              </div>
-            </CardContent>
-            <CardFooter className="border-t border-gray-700 px-6 py-4">
-              <Button type="submit" disabled={isSubmittingProfile} className="bg-blue-600 hover:bg-blue-700 text-white">
-                {isSubmittingProfile ? 'Salvataggio...' : 'Salva Modifiche'}
+
+              {error && (
+                <div className="flex items-center space-x-2 text-destructive pt-2">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-sm">{error}</span>
+                </div>
+              )}
+
+              <Button 
+                type="submit" 
+                disabled={isSubmitting || authLoading}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground mt-4 w-full sm:w-auto"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                {isSubmitting ? 'Salvataggio...' : 'Salva Modifiche'}
               </Button>
-            </CardFooter>
-          </form>
-        </Card>
+            </form>
+          </Card>
+        </TabsContent>
 
-        {/* Qui potresti aggiungere altre Card per impostazioni specifiche dell'applicazione */}
-        {/* Esempio:
-         <Card className="bg-black border-gray-700 text-gray-100">
-           <CardHeader>
-             <CardTitle>Impostazioni Notifiche</CardTitle>
-           </CardHeader>
-           <CardContent>
-             <p>Controlli per le notifiche...</p>
-           </CardContent>
-         </Card>
-        */}
+        <TabsContent value="notifications">
+          <Card className="p-6 bg-card border-border">
+             <h2 className="text-xl font-semibold mb-6 text-foreground">Impostazioni Notifiche</h2>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-background/50">
+                <div className="space-y-0.5">
+                  <Label htmlFor="email_notifications" className="text-sm font-medium text-foreground/90">Notifiche Email</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Ricevi aggiornamenti importanti e promozioni via email.
+                  </p>
+                </div>
+                <Switch
+                  id="email_notifications"
+                  checked={notificationSettings.email_notifications}
+                  onCheckedChange={(checked) => handleNotificationChange('email_notifications', checked)}
+                />
+              </div>
 
-      </div>
+               <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-background/50">
+                <div className="space-y-0.5">
+                  <Label htmlFor="sms_notifications" className="text-sm font-medium text-foreground/90">Notifiche SMS</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Ricevi avvisi critici e codici di verifica via SMS (funzione futura).
+                  </p>
+                </div>
+                <Switch
+                  id="sms_notifications"
+                  checked={notificationSettings.sms_notifications}
+                  onCheckedChange={(checked) => handleNotificationChange('sms_notifications', checked)}
+                  disabled
+                />
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="security">
+          <Card className="p-6 bg-card border-border">
+            <h2 className="text-xl font-semibold mb-6 text-foreground">Impostazioni Sicurezza</h2>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-background/50">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="two_factor_auth" className="text-sm font-medium text-foreground/90">Autenticazione a Due Fattori (2FA)</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Aggiungi un ulteriore livello di sicurezza (funzione futura).
+                    </p>
+                  </div>
+                  <Switch
+                    id="two_factor_auth"
+                    checked={securitySettings.two_factor_auth}
+                    onCheckedChange={(checked) => handleSecurityChange('two_factor_auth', checked)}
+                    disabled
+                  />
+                </div>
+                 <div className="space-y-2 p-4 rounded-lg border border-border bg-background/50">
+                    <Label htmlFor="session_timeout" className="text-sm font-medium text-foreground/90">Timeout Sessione (minuti)</Label>
+                     <p className="text-xs text-muted-foreground mb-1.5">
+                      Disconnessione automatica dopo inattività (funzione futura).
+                    </p>
+                    <Input
+                      id="session_timeout"
+                      type="number"
+                      value={securitySettings.session_timeout}
+                      onChange={(e) => handleSecurityChange('session_timeout', parseInt(e.target.value, 10))}
+                      className="bg-background border-input placeholder:text-muted-foreground focus:border-primary max-w-xs"
+                      disabled
+                      min={5}
+                      max={120}
+                    />
+                  </div>
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

@@ -1,77 +1,91 @@
-import React from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import BrokerLayout from './layouts/BrokerLayout';
-import ClientLayout from './components/layout/ClientLayout';
-import Login from './pages/Login';
+import React from 'react';
+import {
+  createBrowserRouter,
+  RouterProvider,
+  createRoutesFromElements,
+  Route,
+  Navigate,
+  Outlet
+} from 'react-router-dom';
+// import DashboardLayout from './components/layout/DashboardLayout'; // Non più usato per /client
+import ClientLayout from './layouts/ClientLayout'; // Importa il nuovo layout
+import Login from './pages/auth/login';
 import NotFound from './pages/NotFound';
 import './App.css';
 import { Toaster } from './components/ui/toaster';
-import { AuthProvider } from './context/AuthContext';
 import { Toaster as SonnerToaster } from 'sonner';
-import { DocumentsProvider } from './context/DocumentsContext';
-import ImpersonationBanner from './components/layout/ImpersonationBanner';
 import Home from './pages/Home';
 import PrivateRoute from './components/PrivateRoute';
-import SignupPage from './pages/SignupPage';
+import RegisterPage from './pages/auth/register';
+import VerifyEmail from './pages/auth/verify-email';
+import { ThemeProvider } from 'next-themes';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 
 // Broker pages
 import BrokerDashboard from './pages/broker/Dashboard';
-import ClientsPage from './pages/broker/Clients';
-import LeadsPage from './pages/broker/Leads';
+import DocumentsPage from './pages/broker/Documents';
 import SupportPage from './pages/broker/Support';
 import SettingsPage from './pages/broker/Settings';
 import ProfilePage from './pages/broker/ProfilePage';
+import NewDocumentPage from './pages/broker/NewDocument';
 
 // Client pages
 import ClientDashboard from './pages/client/Dashboard';
 import ClientDocuments from './pages/client/Documents';
-import ClientApplication from './pages/client/Application';
 import ClientProfile from './pages/client/Profile';
-import ClientStatus from './pages/client/Status';
 import ClientReports from './pages/client/Reports';
+
+// Manteniamo DashboardLayout per il broker se serve
+import DashboardLayout from './components/layout/DashboardLayout'; 
+
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route element={<Outlet />}>
+      <Route path="/" element={<Home />} />
+      <Route path="auth/login" element={<Login />} />
+      <Route path="auth/register" element={<RegisterPage />} />
+      <Route path="auth/verify-email" element={<VerifyEmail />} />
+
+      {/* Broker Routes - Protette */}
+      <Route 
+        path="broker"
+        element={<PrivateRoute><DashboardLayout role="broker" /></PrivateRoute>} // Mantenuto per il broker
+      >
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<BrokerDashboard />} />
+        <Route path="documents" element={<DocumentsPage />} />
+        <Route path="new-document" element={<NewDocumentPage />} />
+        <Route path="support" element={<SupportPage />} />
+        <Route path="settings" element={<SettingsPage />} />
+        <Route path="profile" element={<ProfilePage />} />
+      </Route>
+      
+      {/* Client routes - Protette con il nuovo ClientLayout */}
+      <Route 
+        path="client"
+        element={<PrivateRoute><ClientLayout /></PrivateRoute>}
+      >
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<ClientDashboard />} />
+        <Route path="documents" element={<ClientDocuments />} />
+        <Route path="reports" element={<ClientReports />} /> {/* Da valutare se mantenere/spostare */}
+        <Route path="profile" element={<ClientProfile />} />
+      </Route>
+      
+      <Route path="*" element={<NotFound />} />
+    </Route>
+  )
+);
 
 function App() {
   return (
-    <div className="dark">
-      <Router>
-        <AuthProvider>
-          <DocumentsProvider>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<SignupPage />} />
-              
-              {/* Broker routes */}
-              <Route path="/broker" element={<BrokerLayout />}>
-                <Route index element={<BrokerDashboard />} />
-                <Route path="dashboard" element={<BrokerDashboard />} />
-                <Route path="clients" element={<ClientsPage />} />
-                <Route path="leads" element={<LeadsPage />} />
-                <Route path="support" element={<SupportPage />} />
-                <Route path="settings" element={<SettingsPage />} />
-                <Route path="profile" element={<ProfilePage />} />
-                <Route path="*" element={<Navigate to="/broker/dashboard" replace />} />
-              </Route>
-              
-              {/* Client routes */}
-              <Route path="/client" element={<ClientLayout />}>
-                <Route index element={<Navigate to="dashboard" replace />} />
-                <Route path="dashboard" element={<ClientDashboard />} />
-                <Route path="documents" element={<ClientDocuments />} />
-                <Route path="upload" element={<ClientDocuments />} />
-                <Route path="status" element={<ClientStatus />} />
-                <Route path="reports" element={<ClientReports />} />
-                <Route path="profile" element={<ClientProfile />} />
-              </Route>
-              
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-            <Toaster />
-            <SonnerToaster />
-          </DocumentsProvider>
-        </AuthProvider>
-      </Router>
-    </div>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+      <ErrorBoundary>
+        <RouterProvider router={router} /> 
+      </ErrorBoundary>
+      <Toaster />
+      <SonnerToaster />
+    </ThemeProvider>
   );
 }
 

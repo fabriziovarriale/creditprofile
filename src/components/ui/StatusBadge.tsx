@@ -1,9 +1,8 @@
-
 import React from 'react';
 import { cn } from "@/lib/utils";
 import { Check, Clock, AlertCircle, HelpCircle } from "lucide-react";
 
-export type StatusType = 'validated' | 'pending' | 'rejected' | 'unknown';
+export type StatusType = 'approved' | 'pending' | 'rejected' | 'unknown';
 
 interface StatusBadgeProps {
   status: StatusType;
@@ -20,13 +19,13 @@ const StatusBadge = ({
 }: StatusBadgeProps) => {
   const getStatusConfig = () => {
     switch (status) {
-      case 'validated':
+      case 'approved':
         return {
           bg: 'bg-green-100',
           text: 'text-green-700',
           border: 'border-green-200',
           icon: <Check size={14} className="text-green-600" />,
-          label: 'Validato'
+          label: 'Approvato'
         };
       case 'pending':
         return {

@@ -1,15 +1,14 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle, Lock, FileText, ArrowRight } from "lucide-react";
-import { useAuth } from '@/context/AuthContext';
+import { CheckCircle, Lock, FileText, ArrowRight, Loader2 } from "lucide-react";
+import { useAuth } from '@/components/providers/SupabaseProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import AnimatedCard from '@/components/ui/AnimatedCard';
 
 const Index = () => {
-  const { user, userType } = useAuth();
+  const { profile: user, isAuthenticated, loading: authLoading } = useAuth();
   const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
@@ -20,6 +19,8 @@ const Index = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const userType = user?.role;
 
   const features = [
     {
@@ -39,6 +40,15 @@ const Index = () => {
     }
   ];
 
+  if (authLoading) {
+    return (
+      <div className="flex flex-col min-h-screen items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Caricamento in corso...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       <header className="w-full py-6 px-4 md:px-6 border-b bg-background/80 backdrop-blur-md">
@@ -49,15 +59,15 @@ const Index = () => {
             </h1>
           </div>
           <div className="flex items-center gap-4">
-            {user ? (
+            {isAuthenticated && user ? (
               <Button asChild>
-                <Link to={userType === 'client' ? '/client' : '/broker'}>
+                <Link to={userType === 'client' ? '/client/dashboard' : '/broker/dashboard'}>
                   Dashboard
                 </Link>
               </Button>
             ) : (
               <Button asChild>
-                <Link to="/login">
+                <Link to="/auth/login">
                   Accedi
                 </Link>
               </Button>
@@ -89,8 +99,8 @@ const Index = () => {
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Button asChild>
-                    <Link to={user ? (userType === 'client' ? '/client' : '/broker') : '/login'}>
-                      {user ? 'Vai alla Dashboard' : 'Inizia Ora'}
+                    <Link to={isAuthenticated && user ? (userType === 'client' ? '/client/dashboard' : '/broker/dashboard') : '/auth/login'}>
+                      {isAuthenticated && user ? 'Vai alla Dashboard' : 'Inizia Ora'}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                   </Button>
@@ -172,8 +182,8 @@ const Index = () => {
                 Unisciti agli altri broker che hanno già semplificato il loro flusso di lavoro.
               </p>
               <Button asChild variant="outline" className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10">
-                <Link to={user ? (userType === 'client' ? '/client' : '/broker') : '/login'}>
-                  {user ? 'Vai alla Dashboard' : 'Inizia Ora'}
+                <Link to={isAuthenticated && user ? (userType === 'client' ? '/client/dashboard' : '/broker/dashboard') : '/auth/login'}>
+                  {isAuthenticated && user ? 'Vai alla Dashboard' : 'Inizia Ora'}
                 </Link>
               </Button>
             </div>
@@ -200,7 +210,7 @@ const Index = () => {
                     </Link>
                   </li>
                   <li>
-                    <Link to="/login" className="text-muted-foreground hover:text-primary transition-colors">
+                    <Link to="/auth/login" className="text-muted-foreground hover:text-primary transition-colors">
                       Accedi
                     </Link>
                   </li>

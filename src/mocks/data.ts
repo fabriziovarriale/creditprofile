@@ -44,9 +44,6 @@ export const mockClients = [
       { id: '1', name: 'Busta paga', status: 'verified' },
       { id: '2', name: 'Documento identità', status: 'pending' }
     ],
-    practices: [
-      { id: '1', type: 'Mutuo', amount: 250000, status: 'in_progress' }
-    ]
   },
   {
     id: '2',
@@ -59,9 +56,6 @@ export const mockClients = [
     documents: [
       { id: '3', name: 'CUD 2023', status: 'pending' }
     ],
-    practices: [
-      { id: '2', type: 'Prestito', amount: 30000, status: 'pending' }
-    ]
   },
   {
     id: '3',
@@ -76,9 +70,6 @@ export const mockClients = [
       { id: '5', name: 'Documento identità', status: 'verified' },
       { id: '6', name: 'Estratto conto', status: 'verified' }
     ],
-    practices: [
-      { id: '3', type: 'Mutuo', amount: 180000, status: 'completed' }
-    ]
   }
 ];
 
@@ -117,13 +108,6 @@ export const mockStats = [
     icon: "UserPlus"
   },
   {
-    title: "Pratiche in Corso",
-    value: "15",
-    trend: "-2%",
-    trendDirection: "down" as const,
-    icon: "FileText"
-  },
-  {
     title: "Prestiti Erogati",
     value: "€450K",
     trend: "+18%",
@@ -133,10 +117,10 @@ export const mockStats = [
 ];
 
 export const mockPerformanceData = [
-  { mese: 'Gen', pratiche: 12, completate: 8, valore: 120000 },
-  { mese: 'Feb', pratiche: 15, completate: 11, valore: 180000 },
-  { mese: 'Mar', pratiche: 18, completate: 14, valore: 220000 },
-  { mese: 'Apr', pratiche: 14, completate: 12, valore: 190000 },
-  { mese: 'Mag', pratiche: 20, completate: 16, valore: 250000 },
-  { mese: 'Giu', pratiche: 22, completate: 18, valore: 280000 },
+  { mese: 'Gen', completate: 8, valore: 120000 },
+  { mese: 'Feb', completate: 11, valore: 180000 },
+  { mese: 'Mar', completate: 14, valore: 220000 },
+  { mese: 'Apr', completate: 12, valore: 190000 },
+  { mese: 'Mag', completate: 16, valore: 250000 },
+  { mese: 'Giu', completate: 18, valore: 280000 },
 ]; 

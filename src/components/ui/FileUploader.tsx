@@ -15,6 +15,7 @@ interface FileUploaderProps {
   uploading?: boolean;
   progress?: number;
   error?: string;
+  id?: string;
 }
 
 const FileUploader = ({
@@ -27,7 +28,8 @@ const FileUploader = ({
   description = "Trascina un file qui o clicca per selezionarlo",
   uploading = false,
   progress = 0,
-  error
+  error,
+  id
 }: FileUploaderProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -128,6 +130,16 @@ const FileUploader = ({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
+          role="button"
+          tabIndex={0}
+          aria-label={label || "Carica file"}
+          aria-describedby={`${id}-description`}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              fileInputRef.current?.click();
+            }
+          }}
         >
           <input
             type="file"
@@ -135,17 +147,18 @@ const FileUploader = ({
             className="hidden"
             accept={accept}
             onChange={handleFileSelect}
+            aria-label={label || "Seleziona file"}
           />
           <div className="flex flex-col items-center justify-center space-y-2">
             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Upload className="h-6 w-6 text-primary" />
+              <Upload className="h-6 w-6 text-primary" aria-hidden="true" />
             </div>
-            <h3 className="text-lg font-medium">{label}</h3>
-            <p className="text-sm text-muted-foreground">{description}</p>
-            <p className="text-xs text-muted-foreground">
+            <h3 className="text-lg font-medium text-zinc-200">{label}</h3>
+            <p id={`${id}-description`} className="text-sm text-zinc-400">{description}</p>
+            <p className="text-xs text-zinc-400">
               Formati supportati: {accept.split(',').join(', ')}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-zinc-400">
               Dimensione massima: {formatFileSize(maxSize)}
             </p>
           </div>

@@ -1,64 +1,12 @@
 // src/types/index.ts
 
-// Corrisponde alla tabella 'leads'
-export interface Lead {
-  id: string; // uuid
-  created_at: string; // timestamp with time zone
-  name: string;
-  email?: string | null;
-  phone?: string | null;
-  source?: string | null;
-  status?: 'new' | 'contacted' | 'qualified' | 'lost' | string | null; // Aggiunto string per flessibilità
-  notes?: string | null;
-}
-
-// Corrisponde alla tabella 'clients'
-export interface Client {
-  id: string; // uuid
-  created_at: string; // timestamp with time zone
-  name: string;
-  email?: string | null;
-  phone?: string | null;
-  status?: 'active' | 'pending' | 'completed' | 'inactive' | string | null; // Aggiunto string
-  progress?: number | null;
-  last_contact?: string | null; // timestamp with time zone
-  // Relazioni (opzionali, se le carichi con join)
-  // documents?: Document[];
-  // practices?: Practice[];
-}
-
-// Corrisponde alla tabella 'practices'
-export interface Practice {
-  id: string; // uuid
-  created_at: string; // timestamp with time zone
-  client_id: string; // uuid
-  type?: string | null;
-  amount?: number | null;
-  status?: 'pending' | 'in_progress' | 'approved' | 'rejected' | 'completed' | string | null; // Aggiunto string
-  updated_at?: string | null; // timestamp with time zone
-}
-
-// Corrisponde alla tabella 'stats'
-// Nota: L'icona dovrà essere mappata separatamente nel componente
-export interface Stat {
-  id: string; // uuid
-  title: string;
-  value?: string | null;
-  trend?: string | null;
-  icon_name?: string | null; // Nome dell'icona (es. 'Users')
-  updated_at?: string | null; // timestamp with time zone
-}
-
 // Corrisponde alla tabella 'performance_data'
 export interface PerformanceData {
-  id: string; // uuid
-  period_type: string; // 'monthly', 'yearly'
-  period_value: string; // 'Gen', 'Feb', '2024'
-  year?: number | null;
-  practices_count?: number | null; // rinominato da 'pratiche'
-  completed_count?: number | null; // rinominato da 'completate'
-  total_value?: number | null; // rinominato da 'valore'
-  recorded_at: string; // date
+  id: string;
+  period_type: string;
+  period_value: string;
+  recorded_at: string;
+  total_value: number;
 }
 
 // Potresti voler creare un tipo per i Documenti se li reintroduci
@@ -68,4 +16,47 @@ export interface PerformanceData {
 //   client_id: string;
 //   name: string;
 //   status?: 'verified' | 'pending' | 'rejected' | string | null;
-// } 
+// }
+
+export type UserRole = 'broker' | 'client' | 'administrator';
+
+export interface User {
+  id: string; // uuid
+  created_at: string; // timestamptz
+  updated_at: string; // timestamptz
+  email: string; // text
+  first_name: string; // text
+  last_name: string; // text
+  role: UserRole; // text o enum user_role
+  phone?: string | null; // text, nullable
+  company?: string | null; // text, nullable (rinominato da company_name)
+  position?: string | null; // text, nullable (aggiunto)
+  profile_image_url?: string | null; // text, nullable
+  is_active: boolean; // boolean, default: true
+  last_login_at?: string | null; // timestamptz, nullable
+}
+
+export type DocumentStatus = 'pending' | 'approved' | 'rejected';
+
+export interface Document {
+  id: string; // uuid
+  uploaded_by_user_id: string; // uuid, FK to users.id
+  credit_profile_id?: string | null; // uuid, FK to credit_profiles.id
+  file_path: string; // text, path to file in storage
+  file_type?: string | null; // text, e.g., 'application/pdf'
+  status: DocumentStatus; // enum: 'pending', 'approved', 'rejected'
+  uploaded_at: string; // timestamptz
+  metadata?: Record<string, any> | null; // jsonb
+  // Campi che potrebbero essere utili dal frontend ma non sono diretti della tabella:
+  name?: string; // Derivato da file_path
+  size?: number; // Potrebbe venire da metadata o storage
+}
+
+export interface Report {
+  id: string;
+  title: string;
+  type: string;
+  client_id: string;
+  broker_id: string;
+  created_at: string;
+} 

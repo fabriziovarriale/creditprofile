@@ -2,13 +2,13 @@ import React from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { FileText, Home, Upload, User, PieChart, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/components/providers/SupabaseProvider';
 import Header from './Header';
 import ImpersonationBanner from './ImpersonationBanner';
 
 const ClientLayout = () => {
   const location = useLocation();
-  const { user } = useAuth();
+  const { profile } = useAuth();
 
   const sidebarItems = [
     { icon: Home, label: 'Dashboard', path: '/client/dashboard' },
@@ -52,8 +52,8 @@ const ClientLayout = () => {
               <User className="h-4 w-4" />
             </div>
             <div>
-              <p className="text-sm font-medium">{user?.name}</p>
-              <p className="text-xs text-muted-foreground">{user?.email}</p>
+              <p className="text-sm font-medium">{profile?.first_name} {profile?.last_name}</p>
+              <p className="text-xs text-muted-foreground">{profile?.email}</p>
             </div>
           </div>
         </div>

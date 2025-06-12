@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Users, 
   FileText, 
@@ -8,22 +8,23 @@ import {
   Bell,
   ChevronDown,
   User as UserIcon,
-  Settings
+  Settings,
+  Loader2
 } from "lucide-react";
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/components/providers/SupabaseProvider';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 const BrokerLayout = () => {
-  const { user, logout } = useAuth();
+  const { profile: user, supabase, loading: authLoading, isAuthenticated } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const navigationItems = [
     { icon: BarChart3, label: 'Dashboard', path: '/broker/dashboard' },
-    { icon: Users, label: 'Clienti', path: '/broker/clients' },
-    { icon: FileText, label: 'Leads', path: '/broker/leads' },
   ];
 
   const bottomNavItems: any[] = [];
@@ -45,18 +46,37 @@ const BrokerLayout = () => {
     },
   ];
 
-  const userInitials = user?.name?.split(' ').map(n => n[0]).join('') || '?';
-  const userName = user?.name || 'Utente';
+  const userInitials = user ? `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase() : '?';
+  const userName = user ? `${user.first_name} ${user.last_name}` : 'Utente';
   const userEmail = user?.email || 'Nessuna email';
 
   const handleLogout = async () => {
+    if (!supabase) {
+      toast.error("Servizio di autenticazione non disponibile.");
+      return;
+    }
     try {
-      await logout();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       setIsProfileOpen(false);
-    } catch (error) {
+      toast.success("Logout effettuato con successo.");
+    } catch (error: any) {
       console.error("Errore durante il logout nel layout:", error);
+      toast.error(error.message || "Errore durante il logout.");
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-black">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="absolute inset-0 flex">

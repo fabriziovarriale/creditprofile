@@ -15,13 +15,13 @@ const Navbar = () => {
           
           <div className="flex items-center space-x-3">
             <Link
-              to="/login"
+              to="/auth/login"
               className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-primary text-primary-50 font-medium hover:bg-primary-100 transition-colors"
             >
               Accedi alla Piattaforma
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
-            <Link to="/signup">
+            <Link to="/auth/register">
               <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
                 Registrati
               </Button>
