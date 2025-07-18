@@ -298,7 +298,7 @@ const ClientProfile = () => {
                 <div className="relative h-36 w-36">
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center">
-                      <div className="text-3xl font-bold">{creditReport.score}</div>
+                      <div className="text-3xl font-bold">{typeof creditReport.score === 'number' && !isNaN(creditReport.score) ? creditReport.score : (!isNaN(Number(creditReport.score)) ? Number(creditReport.score) : '-')}</div>
                       <div className="text-sm text-muted-foreground">su {creditReport.maxScore}</div>
                     </div>
                   </div>
@@ -421,7 +421,7 @@ const ClientProfile = () => {
                       <div className="relative h-48 w-48 mx-auto">
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="text-center">
-                            <div className="text-4xl font-bold">{creditReport.score}</div>
+                            <div className="text-4xl font-bold">{typeof creditReport.score === 'number' && !isNaN(creditReport.score) ? creditReport.score : (!isNaN(Number(creditReport.score)) ? Number(creditReport.score) : '-')}</div>
                             <div className="text-sm text-muted-foreground">su {creditReport.maxScore}</div>
                           </div>
                         </div>

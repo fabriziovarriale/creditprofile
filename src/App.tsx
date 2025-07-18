@@ -23,11 +23,15 @@ import ErrorBoundary from './components/ui/ErrorBoundary';
 
 // Broker pages
 import BrokerDashboard from './pages/broker/Dashboard';
+import ClientsPage from './pages/broker/Clients';
 import DocumentsPage from './pages/broker/Documents';
 import SupportPage from './pages/broker/Support';
 import SettingsPage from './pages/broker/Settings';
 import ProfilePage from './pages/broker/ProfilePage';
-import NewDocumentPage from './pages/broker/NewDocument';
+import CreditScorePage from './pages/broker/CreditScore';
+import CreditProfilesPage from './pages/broker/CreditProfiles';
+import CreditProfileBuilder from './pages/broker/CreditProfileBuilder';
+
 
 // Client pages
 import ClientDashboard from './pages/client/Dashboard';
@@ -35,8 +39,9 @@ import ClientDocuments from './pages/client/Documents';
 import ClientProfile from './pages/client/Profile';
 import ClientReports from './pages/client/Reports';
 
-// Manteniamo DashboardLayout per il broker se serve
-import DashboardLayout from './components/layout/DashboardLayout'; 
+// Importa il layout specifico del broker
+import BrokerLayout from './layouts/BrokerLayout'; 
+import { CreditProfilesProvider } from './pages/broker/CreditProfiles';
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -49,12 +54,15 @@ const router = createBrowserRouter(
       {/* Broker Routes - Protette */}
       <Route 
         path="broker"
-        element={<PrivateRoute><DashboardLayout role="broker" /></PrivateRoute>} // Mantenuto per il broker
+        element={<PrivateRoute><CreditProfilesProvider><BrokerLayout /></CreditProfilesProvider></PrivateRoute>}
       >
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<BrokerDashboard />} />
+        <Route path="clients" element={<ClientsPage />} />
         <Route path="documents" element={<DocumentsPage />} />
-        <Route path="new-document" element={<NewDocumentPage />} />
+        <Route path="credit-score" element={<CreditScorePage />} />
+        <Route path="credit-profiles" element={<CreditProfilesPage />} />
+        <Route path="credit-profiles/nuovo" element={<CreditProfileBuilder />} />
         <Route path="support" element={<SupportPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="profile" element={<ProfilePage />} />

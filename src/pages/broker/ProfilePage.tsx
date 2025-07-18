@@ -139,129 +139,114 @@ const ProfilePage = () => {
    }
 
   return (
-    <div className="flex-1 flex flex-col">
-      <div className="h-16 bg-black flex items-center justify-between px-6 border-b border-gray-700 flex-shrink-0">
-        <h1 className="text-gray-100 font-semibold text-lg">Il Mio Profilo</h1>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-6 bg-gray-950">
-         <div className="max-w-3xl mx-auto space-y-6">
-            <Card className="bg-black border-gray-700 text-gray-100">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="w-5 h-5" />
-                  Informazioni Personali
-                </CardTitle>
-                <CardDescription className="text-gray-400">
-                  Aggiorna i tuoi dati di contatto.
-                </CardDescription>
-              </CardHeader>
-              <form onSubmit={handleProfileUpdate}>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="profile-firstname" className="text-gray-400">Nome</Label>
-                      <Input
-                        id="profile-firstname"
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        className="bg-gray-800 border-gray-600 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="profile-lastname" className="text-gray-400">Cognome</Label>
-                      <Input
-                        id="profile-lastname"
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        className="bg-gray-800 border-gray-600 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                  </div>
+    <div className="flex-1 flex flex-col bg-background min-h-screen">
+      <div className="container mx-auto max-w-3xl p-6">
+        <h1 className="text-3xl font-bold mb-8">Il Mio Profilo</h1>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="w-5 h-5" />
+                Informazioni Personali
+              </CardTitle>
+              <CardDescription>
+                Aggiorna i tuoi dati di contatto.
+              </CardDescription>
+            </CardHeader>
+            <form onSubmit={handleProfileUpdate}>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="profile-email" className="text-gray-400">Email</Label>
+                    <Label htmlFor="profile-firstname">Nome</Label>
                     <Input
-                      id="profile-email"
-                      type="email"
-                      value={email} // L'email viene da Supabase Auth, solitamente non modificabile qui direttamente
-                      disabled // Rendi l'email non modificabile dall'utente in questo form
-                      readOnly
-                      className="bg-gray-800/50 border-gray-600 text-gray-300 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                   <div className="grid gap-2">
-                     <Label htmlFor="profile-phone" className="text-gray-400">Telefono</Label>
-                     <Input
-                       id="profile-phone"
-                       type="tel"
-                       value={phoneNumber}
-                       onChange={(e) => setPhoneNumber(e.target.value)}
-                       className="bg-gray-800 border-gray-600 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
-                     />
-                   </div>
-                   <div className="grid gap-2">
-                     <Label htmlFor="profile-companyname" className="text-gray-400">Nome Azienda (Opzionale)</Label>
-                     <Input
-                       id="profile-companyname"
-                       value={companyName}
-                       onChange={(e) => setCompanyName(e.target.value)}
-                       className="bg-gray-800 border-gray-600 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
-                     />
-                   </div>
-                </CardContent>
-                <CardFooter className="border-t border-gray-700 px-6 py-4">
-                  <Button type="submit" disabled={isSubmittingProfile} className="ml-auto">
-                    {isSubmittingProfile ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvataggio...</> : 'Salva Modifiche'}
-                  </Button>
-                </CardFooter>
-              </form>
-            </Card>
-
-            <Card className="bg-black border-gray-700 text-gray-100">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Lock className="w-5 h-5"/>
-                    Cambia Password
-                </CardTitle>
-                <CardDescription className="text-gray-400">
-                  Aggiorna la tua password di accesso. Assicurati che sia sicura.
-                </CardDescription>
-              </CardHeader>
-              <form onSubmit={handlePasswordUpdate}>
-                <CardContent className="space-y-4">
-                  {/* <div className="grid gap-2">
-                    <Label htmlFor="current-password">Password Attuale</Label>
-                    <Input id="current-password" type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
-                  </div> */}
-                  <div className="grid gap-2">
-                    <Label htmlFor="new-password" className="text-gray-400">Nuova Password</Label>
-                    <Input 
-                        id="new-password" 
-                        type="password" 
-                        value={newPassword} 
-                        onChange={e => setNewPassword(e.target.value)} 
-                        className="bg-gray-800 border-gray-600 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
+                      id="profile-firstname"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="confirm-password" className="text-gray-400">Conferma Nuova Password</Label>
-                    <Input 
-                        id="confirm-password" 
-                        type="password" 
-                        value={confirmPassword} 
-                        onChange={e => setConfirmPassword(e.target.value)} 
-                        className="bg-gray-800 border-gray-600 text-gray-100 focus:ring-blue-500 focus:border-blue-500"
+                    <Label htmlFor="profile-lastname">Cognome</Label>
+                    <Input
+                      id="profile-lastname"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
                     />
                   </div>
-                </CardContent>
-                <CardFooter className="border-t border-gray-700 px-6 py-4">
-                  <Button type="submit" disabled={isSubmittingPassword} className="ml-auto">
-                    {isSubmittingPassword ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Aggiornamento...</> : 'Aggiorna Password'}
-                  </Button>
-                </CardFooter>
-              </form>
-            </Card>
-         </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="profile-email">Email</Label>
+                  <Input
+                    id="profile-email"
+                    type="email"
+                    value={email}
+                    disabled
+                    readOnly
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="profile-phone">Telefono</Label>
+                  <Input
+                    id="profile-phone"
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="profile-companyname">Nome Azienda (Opzionale)</Label>
+                  <Input
+                    id="profile-companyname"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                  />
+                </div>
+              </CardContent>
+              <CardFooter className="border-t px-6 py-4">
+                <Button type="submit" disabled={isSubmittingProfile} className="ml-auto">
+                  {isSubmittingProfile ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvataggio...</> : 'Salva Modifiche'}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lock className="w-5 h-5"/>
+                Cambia Password
+              </CardTitle>
+              <CardDescription>
+                Aggiorna la tua password di accesso. Assicurati che sia sicura.
+              </CardDescription>
+            </CardHeader>
+            <form onSubmit={handlePasswordUpdate}>
+              <CardContent className="space-y-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="new-password">Nuova Password</Label>
+                  <Input 
+                    id="new-password" 
+                    type="password" 
+                    value={newPassword} 
+                    onChange={e => setNewPassword(e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="confirm-password">Conferma Nuova Password</Label>
+                  <Input 
+                    id="confirm-password" 
+                    type="password" 
+                    value={confirmPassword} 
+                    onChange={e => setConfirmPassword(e.target.value)}
+                  />
+                </div>
+              </CardContent>
+              <CardFooter className="border-t px-6 py-4">
+                <Button type="submit" disabled={isSubmittingPassword} className="ml-auto">
+                  {isSubmittingPassword ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvataggio...</> : 'Aggiorna Password'}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </div>
       </div>
     </div>
   );

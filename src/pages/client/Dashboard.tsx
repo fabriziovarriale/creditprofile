@@ -38,8 +38,6 @@ const getDocumentStatusVisuals = (status: string | null) => {
       return { Icon: FileCheck, color: "text-green-500", label: "Approvato" };
     case 'rejected':
       return { Icon: XCircle, color: "text-red-500", label: "Respinto" };
-    case 'missing':
-      return { Icon: FileClock, color: "text-orange-500", label: "Mancante" };
     case 'requires_changes':
       return { Icon: AlertCircle, color: "text-yellow-600", label: "Richiede Modifiche" };
     default:
@@ -150,9 +148,8 @@ const ClientDashboard = () => {
   const totalDocs = documents.length;
   const approvedDocs = documents.filter(d => d.status === 'approved').length;
   const pendingDocs = documents.filter(d => d.status === 'uploaded' || d.status === 'pending_review' || d.status === 'pending').length;
-  const missingDocs = documents.filter(d => d.status === 'missing').length;
   const rejectedOrChangesDocs = documents.filter(d => d.status === 'rejected' || d.status === 'requires_changes').length;
-  const documentsRequiringAttention = documents.filter(d => ['missing', 'requires_changes', 'rejected'].includes(d.status || '')).length;
+  const documentsRequiringAttention = documents.filter(d => ['requires_changes', 'rejected'].includes(d.status || '')).length;
 
 
   if (authLoading || loadingData) {
@@ -219,7 +216,7 @@ const ClientDashboard = () => {
             <div className="flex items-start text-sm text-yellow-700 bg-yellow-50 p-3 rounded-md">
               <AlertCircle className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
               <span>
-                Hai {documentsRequiringAttention} documenti che richiedono la tua attenzione (mancanti, rifiutati o da modificare).
+                Hai {documentsRequiringAttention} documenti che richiedono la tua attenzione (rifiutati o da modificare).
                 <Link to="/client/documents" className="font-semibold underline ml-1 hover:text-yellow-800">Vai ai documenti</Link>.
               </span>
             </div>
@@ -293,10 +290,6 @@ const ClientDashboard = () => {
                   <div className="p-3 bg-yellow-500/10 rounded-lg">
                     <p className="text-xs text-yellow-700">In Revisione</p>
                     <p className="text-2xl font-semibold text-yellow-600">{pendingDocs}</p>
-                  </div>
-                  <div className="p-3 bg-orange-500/10 rounded-lg">
-                    <p className="text-xs text-orange-700">Mancanti</p>
-                    <p className="text-2xl font-semibold text-orange-600">{missingDocs}</p>
                   </div>
                   {(rejectedOrChangesDocs > 0) && (
                     <div className="p-3 bg-red-500/10 rounded-lg col-span-2 md:col-span-1 lg:col-span-1">

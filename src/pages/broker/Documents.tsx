@@ -1,150 +1,265 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  FileText, Search, Upload, MoreVertical, Download, Calendar, Clock,
-  CheckCircle, XCircle, AlertCircle, FileType, Loader2
-} from "lucide-react";
 import { useAuth } from '@/components/providers/SupabaseProvider';
-import { Document as DbDocument, DocumentStatus } from '@/types/index';
 import { Button } from '@/components/ui/button';
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { toast } from 'sonner';
+import { Badge } from "@/components/ui/badge";
+import { 
+  Upload, 
+  Search, 
+  FileText, 
+  Users, 
+  CheckCircle, 
+  AlertCircle,
+  Loader2
+} from "lucide-react";
+
+// Import dei componenti e dati
+import { mockDocuments, getDocumentStats, getDocumentsByClient, Document } from '@/mocks/documents-data';
+import DocumentsTable from '@/components/broker/DocumentsTable';
+import DocumentDetailsSlideOver from '@/components/broker/DocumentDetailsSlideOver';
+
+// Utility per leggere i documenti persistiti
+function getPersistedDocuments(): Document[] {
+  const saved = localStorage.getItem('mockDocuments');
+  if (saved) {
+    try {
+      return JSON.parse(saved) as Document[];
+    } catch {
+      return mockDocuments;
+    }
+  }
+  return mockDocuments;
+}
+
+function getDocumentsByClientFromList(docList: Document[]): { clientName: string; clientEmail: string; creditProfileStatus: string; documents: Document[] }[] {
+  const groupedByClient = docList.reduce((acc, doc) => {
+    const clientKey = `${doc.clientName}|${doc.clientEmail}`;
+    if (!acc[clientKey]) {
+      acc[clientKey] = {
+        clientName: doc.clientName,
+        clientEmail: doc.clientEmail,
+        creditProfileStatus: doc.creditProfileStatus,
+        documents: [] as Document[]
+      };
+    }
+    acc[clientKey].documents.push(doc);
+    return acc;
+  }, {} as Record<string, { clientName: string; clientEmail: string; creditProfileStatus: string; documents: Document[] }>);
+  return Object.values(groupedByClient);
+}
+
+function getDocumentStatsFromList(docList) {
+  const totalDocuments = docList.length;
+  const documentsByStatus = docList.reduce((acc, doc) => {
+    acc[doc.status] = (acc[doc.status] || 0) + 1;
+    return acc;
+  }, {});
+  const documentsByType = docList.reduce((acc, doc) => {
+    acc[doc.documentType] = (acc[doc.documentType] || 0) + 1;
+    return acc;
+  }, {});
+  const clientsWithDocuments = new Set(docList.map(doc => doc.clientEmail)).size;
+  return {
+    totalDocuments,
+    documentsByStatus,
+    documentsByType,
+    clientsWithDocuments
+  };
+}
 
 const DocumentsPage = () => {
-  const { profile: brokerUser, loading: authLoading, isAuthenticated, supabase } = useAuth();
-  const [documents, setDocuments] = useState<DbDocument[]>([]);
-  const [filteredDocuments, setFilteredDocuments] = useState<DbDocument[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loadingData, setLoadingData] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { profile: brokerUser, loading: authLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  
+  // Stati per il slide over
+  const [isSlideOverOpen, setIsSlideOverOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [selectedClientData, setSelectedClientData] = useState<{
+    clientName: string;
+    clientEmail: string;
+    creditProfileStatus: string;
+    documents: Document[];
+  } | null>(null);
+  const [slideOverMode, setSlideOverMode] = useState<'view' | 'upload'>('view');
 
-  useEffect(() => {
+  // Stati per ricerca e filtraggio
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Stato documenti per aggiornamento live
+  const [clientDocuments, setClientDocuments] = useState<{ clientName: string; clientEmail: string; creditProfileStatus: string; documents: Document[] }[]>(getDocumentsByClientFromList(getPersistedDocuments()));
+  const [stats, setStats] = useState(getDocumentStatsFromList(getPersistedDocuments()));
+
+  // Calcola le statistiche
+  // const stats = getDocumentStats(); // This line is no longer needed as stats is now state
+
+  // Filtra i documenti per cliente basato sulla ricerca
+  const filteredClientDocuments = clientDocuments.filter(client => 
+    client.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    client.clientEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    client.documents.some(doc => 
+      doc.documentType.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.fileName.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  );
+
+  // Gestori per il slide over
+  // 1. Rimuovo selectedDocument e la logica handleViewDocument
+  // 2. Modifico DocumentDetailsSlideOver: passo solo selectedClientData, non document
+  // 3. Il pulsante "Dettagli" nella tabella chiama onViewClient(client)
+  const handleViewClient = (clientData: {
+    clientName: string;
+    clientEmail: string;
+    creditProfileStatus: string;
+    documents: Document[];
+  }) => {
+    setSelectedDocument(null);
+    setSelectedClientData(clientData);
+    setSlideOverMode('view');
+    setIsSlideOverOpen(true);
+  };
+
+  const handleUploadDocument = () => {
+    setSelectedDocument(null);
+    setSelectedClientData(null);
+    setSlideOverMode('upload');
+    setIsSlideOverOpen(true);
+  };
+
+  const handleCloseSlideOver = () => {
+    setIsSlideOverOpen(false);
+    setSelectedDocument(null);
+    setSelectedClientData(null);
+    setSlideOverMode('view');
+  };
+
+  const handleUploadSuccess = () => {
+    const docs = getPersistedDocuments();
+    setClientDocuments(getDocumentsByClientFromList(docs));
+    setStats(getDocumentStatsFromList(docs));
+  };
+
+  React.useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      navigate('/auth/login', { replace: true });
-      return;
+      navigate('/auth/login');
     }
-
-    const fetchDocuments = async () => {
-      if (!supabase || !brokerUser) return;
-      setLoadingData(true);
-      setError(null);
-      try {
-        const { data, error: fetchError } = await supabase
-          .from('documents')
-          .select('*')
-          .order('uploaded_at', { ascending: false });
-        if (fetchError) throw fetchError;
-        setDocuments(data || []);
-        setFilteredDocuments(data || []);
-      } catch (err: any) {
-        console.error("Errore nel recupero dei documenti:", err);
-        setError("Impossibile caricare i documenti.");
-        toast.error("Errore nel caricamento dei documenti: " + err.message);
-      } finally {
-        setLoadingData(false);
-      }
-    };
-    if (isAuthenticated && brokerUser) {
-      fetchDocuments();
-    }
-  }, [authLoading, isAuthenticated, brokerUser, supabase, navigate]);
-
-  useEffect(() => {
-    const filtered = documents.filter(doc => 
-      (doc.file_path?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (doc.file_type?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (doc.status?.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-    setFilteredDocuments(filtered);
-  }, [searchQuery, documents]);
-
-  const getStatusIcon = (status: DocumentStatus | undefined | null) => {
-    switch (status) {
-      case 'approved': return <CheckCircle className="w-5 h-5 text-green-400" />;
-      case 'rejected': return <XCircle className="w-5 h-5 text-red-400" />;
-      case 'pending': return <Clock className="w-5 h-5 text-yellow-400" />;
-      default: return <AlertCircle className="w-5 h-5 text-zinc-400" />;
-    }
-  };
-
-  const getStatusText = (status: DocumentStatus | undefined | null) => {
-    switch (status) {
-      case 'approved': return 'Approvato';
-      case 'rejected': return 'Rifiutato';
-      case 'pending': return 'In attesa';
-      default: return 'Sconosciuto';
-    }
-  };
-
-  const getFileIcon = (fileType: string | undefined | null) => {
-    const type = fileType?.toLowerCase();
-    if (type?.includes('pdf')) return <FileText className="w-6 h-6 text-red-400" />;
-    if (type?.includes('word')) return <FileText className="w-6 h-6 text-blue-400" />;
-    if (type?.includes('excel') || type?.includes('spreadsheet')) return <FileText className="w-6 h-6 text-green-400" />;
-    return <FileType className="w-6 h-6 text-zinc-400" />;
-  };
-
-  const extractFileName = (filePath: string | undefined | null) => {
-    return filePath?.split('/').pop() || 'Senza nome';
-  };
+  }, [authLoading, isAuthenticated, navigate]);
 
   if (authLoading) {
-    return <div className="p-6 flex-1 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">Caricamento...</p></div>;
-  }
-  
-  if (loadingData && !error) {
-     return <div className="p-6 flex-1 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">Caricamento documenti...</p></div>;
+    return (
+      <div className="p-6 flex-1 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Caricamento...</p>
+      </div>
+    );
   }
 
-  if (error) {
-    return <div className="p-6 text-red-500 flex-1 flex items-center justify-center"><AlertCircle className="w-6 h-6 mr-2" /> {error}</div>;
+  if (!brokerUser) {
+    return (
+      <div className="p-6 flex-1 flex items-center justify-center">
+        <p>Accesso negato. Effettua il login come broker.</p>
+        <Button onClick={() => navigate('/auth/login')} className="ml-4">Login</Button>
+      </div>
+    );
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-6 lg:p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Gestione Documenti (Broker)</h1>
-        <Button onClick={() => navigate('/broker/new-document')} className="bg-primary hover:bg-primary/80">
-          <Upload className="w-4 h-4 mr-2" /> Carica Nuovo Documento
-        </Button>
-      </div>
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400 w-5 h-5" />
-        <Input type="text" placeholder="Cerca per nome file, tipo o stato..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10 bg-background border-border placeholder:text-muted-foreground" />
-      </div>
-      {filteredDocuments.length === 0 && !loadingData && (
-        <div className="text-center py-12">
-          <FileText size={48} className="mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-xl font-semibold mb-2">Nessun documento trovato</h3>
-          <p className="text-muted-foreground">Non ci sono documenti che corrispondono ai criteri di ricerca o non sono ancora stati caricati.</p>
+    <div className={`container mx-auto p-4 md:p-6 lg:p-8 max-w-7xl ${isSlideOverOpen ? 'md:mr-[600px]' : ''}`} style={{ transition: 'margin-right 0.3s ease-in-out' }}>
+      {/* Header della pagina */}
+      <div className="mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-3xl font-bold">Gestione Documenti</h1>
+            <p className="text-lg text-muted-foreground">
+              Visualizza e gestisci i documenti dei clienti
+            </p>
+          </div>
+          <Button 
+            onClick={handleUploadDocument} 
+            className="w-fit"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Carica Nuovo Documento
+          </Button>
         </div>
-      )}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredDocuments.map((document) => (
-          <Card key={document.id} className="p-4 bg-card border-border hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/broker/documents/${document.id}`)}>
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">{getFileIcon(document.file_type)}</div>
-                <div>
-                  <h3 className="text-md font-semibold text-card-foreground line-clamp-1" title={extractFileName(document.file_path)}>{extractFileName(document.file_path)}</h3>
-                  <p className="text-xs text-muted-foreground">{document.file_type?.toUpperCase() || 'N/D'}</p>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-1 text-xs text-muted-foreground mb-3">
-              <div className="flex items-center"><Calendar className="w-3 h-3 mr-1.5" />Caricato il: {new Date(document.uploaded_at).toLocaleDateString('it-IT')}</div>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-1.5">
-                {getStatusIcon(document.status)}
-                <span className={`text-xs font-medium`}>{getStatusText(document.status)}</span>
-              </div>
-            </div>
+
+        {/* Statistiche rapide */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Documenti Totali</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalDocuments}</div>
+              <p className="text-xs text-muted-foreground">
+                Da {stats.clientsWithDocuments} clienti
+              </p>
+            </CardContent>
           </Card>
-        ))}
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Approvati</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {stats.documentsByStatus.approved || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {Math.round(((stats.documentsByStatus.approved || 0) / stats.totalDocuments) * 100)}% del totale
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">In Attesa</CardTitle>
+              <AlertCircle className="h-4 w-4 text-yellow-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-600">
+                {(stats.documentsByStatus.uploaded || 0) + (stats.documentsByStatus.requires_changes || 0)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Richiedono attenzione
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Rimuovo la card e ogni riferimento a stats.documentsByStatus.missing */}
+        </div>
+
+        {/* Barra di ricerca */}
+        <div className="relative mb-6">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+          <Input
+            type="text"
+            placeholder="Cerca per cliente, email o tipo documento..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
       </div>
+
+      {/* Tabella documenti */}
+      <DocumentsTable 
+        clientDocuments={filteredClientDocuments}
+        onViewClient={handleViewClient}
+      />
+
+      {/* Slide Over per i dettagli */}
+      <DocumentDetailsSlideOver
+        isOpen={isSlideOverOpen}
+        onClose={handleCloseSlideOver}
+        document={null}
+        selectedClientData={selectedClientData}
+        mode={slideOverMode}
+        onUploadSuccess={handleUploadSuccess}
+      />
     </div>
   );
 };

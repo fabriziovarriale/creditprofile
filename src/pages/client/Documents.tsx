@@ -22,6 +22,17 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 
 // Interfaccia per i documenti visualizzati nella tabella
 interface DisplayDocument extends SupabaseDbDocument {
@@ -44,6 +55,7 @@ const ClientDocuments = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilterType>('all');
   const [sortBy, setSortBy] = useState<keyof Pick<DisplayDocument, 'displayName' | 'uploaded_at' | 'status'>>('uploaded_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [docToDelete, setDocToDelete] = useState<SupabaseDbDocument | null>(null);
 
   useEffect(() => {
     const fetchDocuments = async () => {
@@ -186,7 +198,7 @@ const ClientDocuments = () => {
         file_path: filePath, 
         file_name: file.name,
         file_size_kb: Math.round(file.size / 1024),
-        status: 'uploaded', // Stato iniziale dopo il caricamento
+        status: 'pending', // Stato iniziale dopo il caricamento
       };
 
       const { data: dbData, error: dbError } = await supabase
@@ -214,39 +226,23 @@ const ClientDocuments = () => {
   };
   
   const handleDeleteDocument = async (doc: SupabaseDbDocument) => {
-    if (!supabase) return toast.error("Servizio non disponibile.");
-    if (!confirm(`Sei sicuro di voler eliminare il documento "${doc.file_name || doc.document_type}"? L'azione è irreversibile.`)) return;
+    if (!doc.id) return toast.error("ID documento mancante.");
+    setDocToDelete(doc);
+  };
 
-    toast.info("Eliminazione in corso...");
+  const handleDeleteConfirmed = () => {
+    if (!docToDelete) return;
     try {
-      // 1. Elimina il file da Supabase Storage (se file_path esiste)
-      if (doc.file_path) {
-        const { error: storageError } = await supabase.storage
-          .from('documents') // Nome del bucket
-          .remove([doc.file_path]);
-        if (storageError) {
-          console.warn("Errore eliminazione file da Storage:", storageError);
-          // Non bloccare l'eliminazione dal DB se lo storage fallisce, ma logga l'errore
-          toast.warning(`Attenzione: il file potrebbe non essere stato eliminato dallo storage. ${storageError.message}`);
-        }
-      }
-
-      // 2. Elimina la riga dalla tabella 'documents' del database
-      const { error: dbError } = await supabase
-        .from('documents')
-        .delete()
-        .eq('id', doc.id);
-
-      if (dbError) {
-        throw new Error(`Errore DB: ${dbError.message}`);
-      }
-
-      setDocuments(prev => prev.filter(d => d.id !== doc.id));
-      toast.success(`Documento "${doc.file_name || doc.document_type}" eliminato con successo.`);
+      let docs = JSON.parse(localStorage.getItem('mockDocuments') || '[]');
+      docs = docs.filter((d: any) => d.id !== docToDelete.id);
+      localStorage.setItem('mockDocuments', JSON.stringify(docs));
+      setDocuments(prev => prev.filter(d => d.id !== docToDelete.id));
+      toast.success(`Documento "${docToDelete.file_name || docToDelete.document_type}" eliminato (mock).`);
     } catch (error: any) {
       toast.error(`Errore durante l'eliminazione: ${error.message}`);
       console.error("Errore eliminazione documento:", error);
     }
+    setDocToDelete(null);
   };
 
   const handleDownloadDocument = async (doc: DisplayDocument) => {
@@ -286,7 +282,7 @@ const ClientDocuments = () => {
       case 'uploaded': // Consideriamo 'uploaded' come pending review
         return <Badge variant="secondary" className="bg-yellow-500 hover:bg-yellow-600 text-white">In Revisione</Badge>;
       case 'rejected': return <Badge variant="destructive">Respinto</Badge>;
-      case 'missing': return <Badge variant="outline" className="border-orange-500 text-orange-500">Mancante</Badge>;
+      case 'missing': return null; // Rimosso badge Mancante
       case 'requires_changes': return <Badge variant="outline" className="border-yellow-600 text-yellow-600">Richiede Modifiche</Badge>; 
       default: return <Badge variant="outline">Sconosciuto</Badge>;
     }
@@ -449,6 +445,20 @@ const ClientDocuments = () => {
           </AnimatedCard>
         </div>
       )}
+      <AlertDialog open={!!docToDelete} onOpenChange={open => { if (!open) setDocToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conferma eliminazione</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sei sicuro di voler eliminare questo documento? L'azione è irreversibile.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirmed}>Elimina</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

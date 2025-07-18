@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '@/components/providers/SupabaseProvider';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,10 +12,45 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { PanelRight, PanelRightClose, Bell } from 'lucide-react';
+import { useState } from 'react';
 
-const Header = () => {
+interface HeaderProps {
+  isSlideOverOpen?: boolean;
+  onToggleSlideOver?: () => void;
+  showSlideOverToggle?: boolean;
+}
+
+// Mock notifiche
+const mockNotifications = [
+  {
+    id: '1',
+    type: 'document',
+    message: 'Nuovo documento caricato da Marco Rossi',
+    createdAt: '2024-06-10T10:00:00Z',
+    read: false,
+    link: '/broker/documents'
+  },
+  {
+    id: '2',
+    type: 'credit_score',
+    message: 'Credit score pronto per Anna Verdi',
+    createdAt: '2024-06-10T09:30:00Z',
+    read: false,
+    link: '/broker/credit-score'
+  }
+];
+
+const Header: React.FC<HeaderProps> = ({ 
+  isSlideOverOpen = false, 
+  onToggleSlideOver,
+  showSlideOverToggle = false 
+}) => {
   const { profile, supabase, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState(mockNotifications);
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleLogout = async () => {
     if (!supabase) return;
@@ -25,6 +61,12 @@ const Header = () => {
       toast.success("Logout effettuato con successo!");
       navigate('/auth/login');
     }
+  };
+
+  const handleNotificationClick = (id: string, link?: string) => {
+    setNotifications(notifications => notifications.map(n => n.id === id ? { ...n, read: true } : n));
+    if (link) navigate(link);
+    setShowNotifications(false);
   };
 
   const getInitials = (firstName?: string, lastName?: string) => {
@@ -59,33 +101,97 @@ const Header = () => {
 
   return (
     <header className="border-b bg-card text-card-foreground">
-      <div className="flex h-16 items-center px-4 justify-end">
-        {isAuthenticated && profile ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger className="flex items-center gap-2 cursor-pointer p-2 rounded-md hover:bg-accent">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-medium hidden sm:inline">
-                {displayName}
-              </span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-popover text-popover-foreground">
-              <DropdownMenuLabel>Il Mio Account</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => navigate(profile.role === 'broker' ? '/broker/profile' : '/client/profile')}>
-                Profilo
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="text-red-500 hover:!text-red-500 hover:!bg-red-500/10">
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <div className="text-sm text-muted-foreground">Non autenticato</div>
-        )}
+      <div className="flex h-16 items-center px-4 justify-between">
+        {/* Pulsante Slide Over (solo per broker) */}
+        <div className="flex items-center">
+          {showSlideOverToggle && onToggleSlideOver && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggleSlideOver}
+              className="flex items-center gap-2"
+            >
+              {isSlideOverOpen ? (
+                <>
+                  <PanelRightClose className="h-4 w-4" />
+                  <span className="hidden sm:inline">Chiudi Dettagli</span>
+                </>
+              ) : (
+                <>
+                  <PanelRight className="h-4 w-4" />
+                  <span className="hidden sm:inline">Dettagli</span>
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+
+        {/* User Menu + Notifiche */}
+        <div className="flex items-center gap-4">
+          {/* Notifiche */}
+          <div className="relative">
+            <button
+              className="relative flex items-center justify-center h-10 w-10 rounded-full transition-colors hover:bg-gray-100 group"
+              aria-label="Notifiche"
+              onClick={() => setShowNotifications(v => !v)}
+            >
+              <Bell className="h-6 w-6 transition-colors group-hover:text-primary" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-80 bg-white border rounded shadow-lg z-50">
+                <div className="p-2 font-semibold border-b">Notifiche</div>
+                <ul>
+                  {notifications.length === 0 ? (
+                    <li className="p-4 text-muted-foreground">Nessuna notifica</li>
+                  ) : (
+                    notifications.map(n => (
+                      <li key={n.id} className={`p-3 border-b last:border-0 ${n.read ? 'bg-gray-50' : 'bg-white'}`}>
+                        <button className="block text-left w-full hover:underline" onClick={() => handleNotificationClick(n.id, n.link)}>
+                          {n.message}
+                        </button>
+                        <div className="text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleString('it-IT')}</div>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            )}
+          </div>
+          {/* User Menu */}
+          <div className="flex items-center">
+            {isAuthenticated && profile ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-2 cursor-pointer p-2 rounded-md transition-colors hover:bg-gray-100">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium hidden sm:inline">
+                    {displayName}
+                  </span>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-popover text-popover-foreground">
+                  <DropdownMenuLabel>Il Mio Account</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => navigate(profile.role === 'broker' ? '/broker/profile' : '/client/profile')}>
+                    Profilo
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-red-500 hover:!text-red-500 hover:!bg-red-500/10">
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="text-sm text-muted-foreground">Non autenticato</div>
+            )}
+          </div>
+        </div>
       </div>
     </header>
   );
