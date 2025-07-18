@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conferma il tuo indirizzo email</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: #4F46E5;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .footer {
+      margin-top: 30px;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <h2>Benvenuto in Credit Profile!</h2>
+  <p>Ciao {{ .Email }},</p>
+  <p>Grazie per esserti registrato. Per completare la registrazione, clicca sul pulsante qui sotto per confermare il tuo indirizzo email:</p>
+  
+  <a href="{{ .ConfirmationURL }}" class="button">Conferma Email</a>
+  
+  <p>Se il pulsante non funziona, puoi copiare e incollare il seguente link nel tuo browser:</p>
+  <p>{{ .ConfirmationURL }}</p>
+  
+  <p>Questo link scadrà tra 24 ore.</p>
+  
+  <div class="footer">
+    <p>Se non hai richiesto tu questa registrazione, puoi ignorare questa email.</p>
+    <p>© 2024 Credit Profile. Tutti i diritti riservati.</p>
+  </div>
+</body>
+</html> 

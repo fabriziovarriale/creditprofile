@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reimposta la tua password</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: #4F46E5;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .footer {
+      margin-top: 30px;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <h2>Reimposta la tua password</h2>
+  <p>Ciao {{ .Email }},</p>
+  <p>Abbiamo ricevuto una richiesta per reimpostare la password del tuo account. Clicca sul pulsante qui sotto per procedere:</p>
+  
+  <a href="{{ .ConfirmationURL }}" class="button">Reimposta Password</a>
+  
+  <p>Se il pulsante non funziona, puoi copiare e incollare il seguente link nel tuo browser:</p>
+  <p>{{ .ConfirmationURL }}</p>
+  
+  <p>Questo link scadrà tra 1 ora.</p>
+  
+  <p>Se non hai richiesto tu il reset della password, puoi ignorare questa email.</p>
+  
+  <div class="footer">
+    <p>© 2024 Credit Profile. Tutti i diritti riservati.</p>
+  </div>
+</body>
+</html> 
