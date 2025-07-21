@@ -117,7 +117,7 @@ const BrokerDashboard = () => {
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      navigate('/auth/login');
+      navigate('/login');
     }
   }, [authLoading, isAuthenticated, brokerProfile, supabase, navigate]);
 
@@ -161,7 +161,7 @@ const BrokerDashboard = () => {
     return (
       <div className="p-6 flex-1 flex items-center justify-center">
         <p>Profilo utente non disponibile. Potrebbe essere necessario effettuare nuovamente il login.</p>
-        <Button onClick={() => navigate('/auth/login')} className="ml-4">Login</Button>
+        <Button onClick={() => navigate('/login')} className="ml-4">Login</Button>
       </div>
     );
   }

@@ -57,7 +57,7 @@ const ResetPassword = () => {
       
       // Redirect dopo 3 secondi
       setTimeout(() => {
-        navigate('/auth/login');
+        navigate('/login');
       }, 3000);
     } catch (err: any) {
       console.error('Errore durante il reset della password:', err);
@@ -100,7 +100,7 @@ const ResetPassword = () => {
               </div>
 
               <Button
-                onClick={() => navigate('/auth/login')}
+                onClick={() => navigate('/login')}
                 className="w-full bg-primary hover:bg-primary/90"
               >
                 Vai al login

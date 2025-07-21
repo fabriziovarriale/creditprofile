@@ -348,10 +348,10 @@ const CreditScoreDetailsSlideOver: React.FC<{
   return (
     <>
       {isOpen && (
-        <div className="fixed inset-0 bg-black/50 z-30" onClick={onClose} />
+        <div className="fixed inset-0 bg-black/50 z-50" onClick={onClose} />
       )}
       <div
-        className={`fixed top-16 right-0 h-[calc(100vh-4rem)] w-full md:w-[600px] bg-background border-l border-border shadow-2xl transform transition-transform duration-300 ease-in-out z-40 ${
+        className={`fixed top-0 right-0 h-screen w-full md:w-[600px] bg-background border-l border-border shadow-2xl transform transition-transform duration-300 ease-in-out z-50 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         onClick={(e) => e.stopPropagation()}

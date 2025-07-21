@@ -103,7 +103,7 @@ export default function VerifyEmail() {
           ) : error ? (
             <div className="space-y-4">
               <p className="text-red-500">{error}</p>
-              <Button onClick={() => navigate('/auth/login', { replace: true })} className="w-full">
+              <Button onClick={() => navigate('/login', { replace: true })} className="w-full">
                 Torna al Login
               </Button>
             </div>

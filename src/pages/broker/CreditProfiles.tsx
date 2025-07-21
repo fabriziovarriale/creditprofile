@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { PlusCircle, Eye, Download, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import DemoReportModal from '@/components/demo/DemoReportModal';
+import DemoReportSlideOver from '@/components/demo/DemoReportSlideOver';
 
 // Context per credit profiles
 const CreditProfilesContext = createContext<{
@@ -113,7 +113,7 @@ const CreditProfilesPage = () => {
         </CardContent>
       </Card>
       {isModalOpen && previewProfile && (
-        <DemoReportModal isOpen={isModalOpen} onClose={handleCloseModal} profile={previewProfile} />
+        <DemoReportSlideOver isOpen={isModalOpen} onClose={handleCloseModal} profile={previewProfile} />
       )}
       {/* Modale di conferma eliminazione */}
       {profileToDelete && (

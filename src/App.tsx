@@ -14,7 +14,6 @@ import NotFound from './pages/NotFound';
 import './App.css';
 import { Toaster } from './components/ui/toaster';
 import { Toaster as SonnerToaster } from 'sonner';
-import Home from './pages/Home';
 import PrivateRoute from './components/PrivateRoute';
 import RegisterPage from './pages/auth/register';
 import VerifyEmail from './pages/auth/verify-email';
@@ -42,16 +41,20 @@ import ClientReports from './pages/client/Reports';
 // Importa il layout specifico del broker
 import BrokerLayout from './layouts/BrokerLayout'; 
 import { CreditProfilesProvider } from './pages/broker/CreditProfiles';
+import Index from './pages/Index';
 
 
 // test
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route element={<Outlet />}>
-      <Route path="/" element={<Home />} />
-      <Route path="auth/login" element={<Login />} />
-      <Route path="auth/register" element={<RegisterPage />} />
-      <Route path="auth/verify-email" element={<VerifyEmail />} />
+      <Route path="/" element={<Index />} />
+      <Route path="login" element={<Login />} />
+      <Route path="auth/login" element={<Navigate to="/login" replace />} />
+      <Route path="register" element={<RegisterPage />} />
+      <Route path="auth/register" element={<Navigate to="/register" replace />} />
+      <Route path="verify-email" element={<VerifyEmail />} />
+      <Route path="auth/verify-email" element={<Navigate to="/verify-email" replace />} />
 
       {/* Broker Routes - Protette */}
       <Route 

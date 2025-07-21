@@ -59,7 +59,7 @@ const Header: React.FC<HeaderProps> = ({
       toast.error("Errore durante il logout: " + error.message);
     } else {
       toast.success("Logout effettuato con successo!");
-      navigate('/auth/login');
+      navigate('/login');
     }
   };
 

@@ -17,7 +17,7 @@ import {
   Edit
 } from 'lucide-react';
 import { useCreditProfiles } from '@/pages/broker/CreditProfiles';
-import DemoReportModal from "../demo/DemoReportModal";
+import DemoReportSlideOver from "../demo/DemoReportSlideOver";
 
 interface ClientDetailsSlideOverProps {
   isOpen: boolean;
@@ -289,7 +289,7 @@ const ClientDetailsSlideOver: React.FC<ClientDetailsSlideOverProps> = ({
           </div>
         </div>
       </div>
-      <DemoReportModal
+      <DemoReportSlideOver
         isOpen={showDemoModal}
         onClose={() => setShowDemoModal(false)}
         profile={selectedProfile}

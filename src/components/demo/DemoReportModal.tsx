@@ -155,9 +155,7 @@ function getDocumentsForClient(clientName: string, clientEmail: string) {
   return [];
 }
 
-const DemoReportModal = ({ isOpen, onClose, profile }: DemoReportModalProps) => {
-  if (!isOpen) return null;
-
+const DemoReportModal = ({ profile }: DemoReportModalProps) => {
   // Usa i dati del profilo passato, altrimenti fallback demo SOLO se profile non esiste
   const data = profile || mockCreditProfile;
   const clientName = data.firstName + ' ' + data.lastName;
@@ -216,72 +214,22 @@ const DemoReportModal = ({ isOpen, onClose, profile }: DemoReportModalProps) => 
   const clientNameForDocs = (data.firstName && data.lastName) ? `${data.firstName} ${data.lastName}` : clientName;
   const clientDocs = getDocumentsForClient(clientNameForDocs, email);
 
-  const overlayRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    const handler = (e) => {
-      // Blocca la propagazione se il click parte da una tab (Radix UI TabsTrigger o simili)
-      if (
-        e.target.closest('.radix-tabs-trigger') ||
-        e.target.closest('[role="tab"]')
-      ) {
-        e.stopPropagation();
-      }
-    };
-    document.addEventListener('mousedown', handler, true);
-    document.addEventListener('click', handler, true);
-    return () => {
-      document.removeEventListener('mousedown', handler, true);
-      document.removeEventListener('click', handler, true);
-    };
-  }, []);
-
   return (
-    <div
-      ref={overlayRef}
-      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-      onClick={e => {
-        if (e.target === overlayRef.current && e.currentTarget === overlayRef.current) {
-          onClose();
-        }
-      }}
-      onMouseDown={e => {
-        if (e.target === overlayRef.current && e.currentTarget === overlayRef.current) {
-          e.preventDefault();
-          onClose();
-        }
-      }}
-    >
-      <div
-        className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto"
-      >
-        <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Logo iconSize={24} textSize={24} />
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        {/* Tutto il contenuto in una sola pagina scrollabile */}
-        <div className="p-6 space-y-8">
+    <div className="p-6 space-y-8">
           {/* Dati anagrafici */}
           <section className="bg-gray-50 rounded-xl p-6">
             <h2 className="text-2xl font-bold mb-2">Dati anagrafici</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <div className="text-sm text-muted-foreground font-semibold">
+                <div className="text-base text-muted-foreground font-semibold">
                   {data.clientName ? data.clientName : (data.firstName && data.lastName ? `${data.firstName} ${data.lastName}` : '')}
                 </div>
-                <div className="text-sm text-muted-foreground">{email}</div>
-                <div className="text-sm text-muted-foreground">{phone}</div>
-                <div className="text-sm text-muted-foreground">Codice fiscale: {codiceFiscale}</div>
-                <div className="text-sm text-muted-foreground">Nato il {birthDate} a {birthPlace}</div>
-                <div className="text-sm text-muted-foreground">Indirizzo: {address}</div>
-                <div className="text-sm text-muted-foreground">SSN: {ssn}</div>
+                <div className="text-base text-muted-foreground">{email}</div>
+                <div className="text-base text-muted-foreground">{phone}</div>
+                <div className="text-base text-muted-foreground">Codice fiscale: {codiceFiscale}</div>
+                <div className="text-base text-muted-foreground">Nato il {birthDate} a {birthPlace}</div>
+                <div className="text-base text-muted-foreground">Indirizzo: {address}</div>
+                <div className="text-base text-muted-foreground">SSN: {ssn}</div>
                 {employment && (
                   <div className="text-sm text-muted-foreground">Impiegato presso: {employment.employer} ({employment.position})</div>
                 )}
@@ -339,10 +287,10 @@ const DemoReportModal = ({ isOpen, onClose, profile }: DemoReportModalProps) => 
             </div>
             {/* Dettagli score, fattori, segnalazioni */}
             <div className="mb-2">
-              <div className="font-semibold mb-1">Dettagli Credit Score</div>
-              <div className="text-sm whitespace-pre-line mb-1">{details && details.trim() ? details : <span className="text-muted-foreground">Non compilato</span>}</div>
-              <div className="mt-1 text-xs text-muted-foreground"><span className="font-medium">Fattori:</span> {factors && factors.trim() ? factors : <span className='text-muted-foreground'>Non compilato</span>}</div>
-              <div className="mt-1 text-xs text-red-500"><span className="font-medium">Segnalazioni:</span> {segnalazioni && segnalazioni.trim() ? segnalazioni : <span className='text-muted-foreground'>Non compilato</span>}</div>
+              <div className="font-semibold mb-1 text-lg">Dettagli Credit Score</div>
+              <div className="text-base whitespace-pre-line mb-1">{details && details.trim() ? details : <span className="text-muted-foreground">Non compilato</span>}</div>
+              <div className="mt-1 text-base text-muted-foreground"><span className="font-medium">Fattori:</span> {factors && factors.trim() ? factors : <span className='text-muted-foreground'>Non compilato</span>}</div>
+              <div className="mt-1 text-base text-red-500"><span className="font-medium">Segnalazioni:</span> {segnalazioni && segnalazioni.trim() ? segnalazioni : <span className='text-muted-foreground'>Non compilato</span>}</div>
             </div>
           </section>
 
@@ -362,36 +310,52 @@ const DemoReportModal = ({ isOpen, onClose, profile }: DemoReportModalProps) => 
             </div>
           </section>
 
-          {/* Distribuzione status documenti (grafico demo) */}
-          <section className="bg-gray-50 rounded-xl p-6">
-            <h2 className="text-xl font-bold mb-4">Distribuzione Status Documenti</h2>
-            <div className="h-[220px] flex items-center justify-center">
+          {/* Possibilità di ottenere un mutuo (gauge demo) */}
+          <section className="bg-gray-50 rounded-xl p-10 mb-8">
+            <h2 className="text-xl font-bold mb-6">Possibilità di Ottenere un Mutuo</h2>
+            <div className="flex flex-col items-center justify-center">
+              <svg width="220" height="120" viewBox="0 0 220 120">
+                <defs>
+                  <linearGradient id="gaugeMutuo" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#ef4444" />
+                    <stop offset="50%" stopColor="#fde047" />
+                    <stop offset="100%" stopColor="#10b981" />
+                  </linearGradient>
+                </defs>
+                <path d="M30,100 A80,80 0 0,1 190,100" fill="none" stroke="url(#gaugeMutuo)" strokeWidth="18" />
+                <text x="30" y="115" fontSize="12" fill="#ef4444">0%</text>
+                <text x="100" y="105" fontSize="12" fill="#fde047">50%</text>
+                <text x="180" y="115" fontSize="12" fill="#10b981">100%</text>
+                {/* Indicatore demo: 78% */}
+                <circle cx="146" cy="70" r="8" fill="#10b981" stroke="#fff" strokeWidth="3" />
+                <text x="110" y="60" textAnchor="middle" fontSize="28" fontWeight="bold" fill="#10b981">78%</text>
+              </svg>
+              <div className="mt-4 text-lg text-green-700 font-semibold">Alta probabilità di approvazione</div>
+              <div className="text-sm text-muted-foreground">Valutazione basata su profilo demo</div>
+            </div>
+          </section>
+
+          {/* Prospetto rate mutuo (bar chart demo) */}
+          <section className="bg-gray-50 rounded-xl p-10">
+            <h2 className="text-xl font-bold mb-6">Prospetto Rate Mutuo</h2>
+            <div className="h-[260px] flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={(() => {
-                      const statusCount = clientDocs.reduce((acc, doc) => {
-                        acc[doc.status] = (acc[doc.status] || 0) + 1;
-                        return acc;
-                      }, {});
-                      return Object.entries(statusCount).map(([status, value]) => ({ name: status, value }));
-                    })()}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={70}
-                    fill="#8884d8"
-                    label
-                  >
-                    {['approved', 'rejected', 'pending', 'requires_changes', 'uploaded'].map((status, idx) => (
-                      <Cell key={status} fill={['#10b981', '#ef4444', '#f59e0b', '#f97316', '#3b82f6'][idx]} />
-                    ))}
-                  </Pie>
-                  <Legend />
-                </PieChart>
+                <BarChart data={[
+                  { durata: '10 anni', rata: 950 },
+                  { durata: '15 anni', rata: 720 },
+                  { durata: '20 anni', rata: 600 },
+                  { durata: '25 anni', rata: 520 },
+                  { durata: '30 anni', rata: 470 },
+                ]} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="durata" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => `€${value}`}/>
+                  <Bar dataKey="rata" name="Rata mensile" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
+            <div className="mt-4 text-center text-muted-foreground text-sm">Importi demo calcolati su un mutuo di €150.000 a tasso fisso 3,5%</div>
           </section>
 
           {/* Credit Summary */}
@@ -496,15 +460,18 @@ const DemoReportModal = ({ isOpen, onClose, profile }: DemoReportModalProps) => 
           {/* Banche partner consigliate */}
           <section className="bg-gray-50 rounded-xl p-6">
             <h2 className="text-xl font-bold mb-2">Banche partner consigliate</h2>
-            <div className="flex flex-wrap gap-2 mt-2">
+            <div className="flex flex-wrap gap-3 mt-4">
               {data.partnerBanks && data.partnerBanks.length > 0 ? data.partnerBanks.map((bank, index) => (
-                <span key={index} className="bg-gray-100 px-3 py-1 rounded text-sm">{bank}</span>
+                <span
+                  key={index}
+                  className="bg-primary/10 text-primary px-4 py-2 rounded-lg text-base font-medium border border-primary/20 shadow-sm"
+                >
+                  {bank}
+                </span>
               )) : <span className="text-muted-foreground">Nessuna selezionata</span>}
             </div>
           </section>
         </div>
-      </div>
-    </div>
   );
 };
 

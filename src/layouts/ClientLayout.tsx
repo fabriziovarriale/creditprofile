@@ -25,12 +25,12 @@ const ClientLayout: React.FC = () => {
         // Potresti voler mostrare un messaggio di errore all'utente qui
       } else {
         console.log('Logout eseguito con successo da Supabase');
-        navigate('/auth/login', { replace: true }); // Aggiunto replace: true per una navigazione più pulita
+        navigate('/login', { replace: true }); // Aggiunto replace: true per una navigazione più pulita
       }
     } else {
       // Fallback se supabase non è disponibile (improbabile se useAuth funziona)
       console.warn('Istanza Supabase non disponibile per il logout.');
-      navigate('/auth/login', { replace: true });
+      navigate('/login', { replace: true });
     }
     // navigate('/auth/login'); // Spostato dentro il blocco if/else
     // console.log('Logout eseguito'); // Placeholder // Rimosso log ridondante

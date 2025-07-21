@@ -24,7 +24,7 @@ const PrivateRoute = ({ children /*, allowedRoles */ }: PrivateRouteProps) => {
   if (!isAuthenticated) {
     // Se l'utente non è autenticato, reindirizza alla pagina di login
     // Salva la posizione corrente in modo da poter reindirizzare l'utente indietro dopo il login
-    return <Navigate to="/auth/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // // Opzionale: Controllo dei ruoli

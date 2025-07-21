@@ -12,8 +12,8 @@ import {
   Users, 
   CheckCircle, 
   AlertCircle,
-  XCircle,
-  Loader2
+  Loader2,
+  XCircle
 } from "lucide-react";
 
 // Import dei componenti e dati
@@ -143,7 +143,7 @@ const DocumentsPage = () => {
 
   React.useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      navigate('/auth/login');
+      navigate('/login');
     }
   }, [authLoading, isAuthenticated, navigate]);
 
@@ -160,7 +160,7 @@ const DocumentsPage = () => {
     return (
       <div className="p-6 flex-1 flex items-center justify-center">
         <p>Accesso negato. Effettua il login come broker.</p>
-        <Button onClick={() => navigate('/auth/login')} className="ml-4">Login</Button>
+        <Button onClick={() => navigate('/login')} className="ml-4">Login</Button>
       </div>
     );
   }
@@ -222,7 +222,7 @@ const DocumentsPage = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-yellow-600">
-                {(stats.documentsByStatus.uploaded || 0) + (stats.documentsByStatus.pending || 0) + (stats.documentsByStatus.requires_changes || 0)}
+                {(stats.documentsByStatus.pending || 0) + (stats.documentsByStatus.uploaded || 0) + (stats.documentsByStatus.requires_changes || 0)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Richiedono attenzione

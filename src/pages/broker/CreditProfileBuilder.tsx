@@ -10,7 +10,7 @@ import { useCreditProfiles } from './CreditProfiles';
 import { useNavigate, Link } from 'react-router-dom';
 import { mockClients } from '@/mocks/broker-data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import DemoReportModal from '@/components/demo/DemoReportModal';
+import DemoReportSlideOver from '@/components/demo/DemoReportSlideOver';
 
 const partnerBanksList = [
   'Banca Intesa',
@@ -277,7 +277,7 @@ const CreditProfileBuilder: React.FC<CreditProfileBuilderProps> = ({ clientId })
                 (() => { console.log('DEBUG PREVIEW', {form, selectedClient}); return null; })()
               )}
               {isPreviewOpen && (
-                <DemoReportModal
+                <DemoReportSlideOver
                   isOpen={isPreviewOpen}
                   onClose={() => setIsPreviewOpen(false)}
                   profile={{

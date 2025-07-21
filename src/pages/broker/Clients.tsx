@@ -139,7 +139,7 @@ const ClientsPage = () => {
 
   React.useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      navigate('/auth/login');
+      navigate('/login');
     }
   }, [authLoading, isAuthenticated, navigate]);
 
@@ -156,7 +156,7 @@ const ClientsPage = () => {
     return (
       <div className="p-6 flex-1 flex items-center justify-center">
         <p>Accesso negato. Effettua il login come broker.</p>
-        <Button onClick={() => navigate('/auth/login')} className="ml-4">Login</Button>
+        <Button onClick={() => navigate('/login')} className="ml-4">Login</Button>
       </div>
     );
   }

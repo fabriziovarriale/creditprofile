@@ -132,7 +132,7 @@ const SettingsPage = () => {
     return (
         <div className="p-6 space-y-6 text-center">
             <p>Profilo non disponibile. Effettua il login.</p>
-            <Button onClick={() => navigate('/auth/login')}>Vai al Login</Button>
+            <Button onClick={() => navigate('/login')}>Vai al Login</Button>
         </div>
     );
   }

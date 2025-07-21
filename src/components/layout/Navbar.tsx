@@ -15,7 +15,7 @@ const Navbar = () => {
           
           <div className="flex items-center space-x-3">
             <Link
-              to="/auth/login"
+              to="/login"
               className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-primary text-primary-50 font-medium hover:bg-primary-100 transition-colors"
             >
               Accedi alla Piattaforma
