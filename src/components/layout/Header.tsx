@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { PanelRight, PanelRightClose, Bell } from 'lucide-react';
+import Logo from '@/components/ui/Logo';
 import { useState } from 'react';
 
 interface HeaderProps {
@@ -102,28 +103,9 @@ const Header: React.FC<HeaderProps> = ({
   return (
     <header className="border-b bg-card text-card-foreground">
       <div className="flex h-16 items-center px-4 justify-between">
-        {/* Pulsante Slide Over (solo per broker) */}
+        {/* Logo Credit Profile */}
         <div className="flex items-center">
-          {showSlideOverToggle && onToggleSlideOver && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggleSlideOver}
-              className="flex items-center gap-2"
-            >
-              {isSlideOverOpen ? (
-                <>
-                  <PanelRightClose className="h-4 w-4" />
-                  <span className="hidden sm:inline">Chiudi Dettagli</span>
-                </>
-              ) : (
-                <>
-                  <PanelRight className="h-4 w-4" />
-                  <span className="hidden sm:inline">Dettagli</span>
-                </>
-              )}
-            </Button>
-          )}
+          <Logo className="h-8 w-auto" />
         </div>
 
         {/* User Menu + Notifiche */}
