@@ -12,6 +12,7 @@ import {
   Users, 
   CheckCircle, 
   AlertCircle,
+  XCircle,
   Loader2
 } from "lucide-react";
 
@@ -209,7 +210,7 @@ const DocumentsPage = () => {
                 {stats.documentsByStatus.approved || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {Math.round(((stats.documentsByStatus.approved || 0) / stats.totalDocuments) * 100)}% del totale
+                {stats.totalDocuments > 0 ? Math.round(((stats.documentsByStatus.approved || 0) / stats.totalDocuments) * 100) : 0}% del totale
               </p>
             </CardContent>
           </Card>
@@ -221,7 +222,7 @@ const DocumentsPage = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-yellow-600">
-                {(stats.documentsByStatus.uploaded || 0) + (stats.documentsByStatus.requires_changes || 0)}
+                {(stats.documentsByStatus.uploaded || 0) + (stats.documentsByStatus.pending || 0) + (stats.documentsByStatus.requires_changes || 0)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Richiedono attenzione
@@ -229,7 +230,20 @@ const DocumentsPage = () => {
             </CardContent>
           </Card>
 
-          {/* Rimuovo la card e ogni riferimento a stats.documentsByStatus.missing */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Rifiutati</CardTitle>
+              <XCircle className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">
+                {stats.documentsByStatus.rejected || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {stats.totalDocuments > 0 ? Math.round(((stats.documentsByStatus.rejected || 0) / stats.totalDocuments) * 100) : 0}% del totale
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Barra di ricerca */}

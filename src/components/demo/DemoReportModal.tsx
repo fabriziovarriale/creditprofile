@@ -257,8 +257,7 @@ const DemoReportModal = ({ isOpen, onClose, profile }: DemoReportModalProps) => 
       >
         <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Logo iconSize={6} textSize="text-2xl" />
-            <span className="text-2xl font-bold text-gray-800">Credit Profile</span>
+            <Logo iconSize={24} textSize={24} />
           </div>
           <button
             onClick={onClose}

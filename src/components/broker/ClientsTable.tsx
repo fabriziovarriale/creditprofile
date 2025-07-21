@@ -298,8 +298,14 @@ const ClientsTable: React.FC<ClientsTableProps> = ({
         </div>
       )}
       {showCreditScoreModal && (
-        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full">
+        <div 
+          className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
+          onClick={() => { setShowCreditScoreModal(false); setPendingClientId(null); }}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="mb-4 text-lg font-semibold">Conferma richiesta Credit Score</div>
             <div className="mb-6 text-sm text-muted-foreground">Vuoi richiedere o aggiornare il Credit Score per questo cliente?</div>
             <div className="flex justify-end gap-2">

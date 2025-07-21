@@ -123,7 +123,10 @@ export default function CreditScorePage() {
           {/* <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowRequestSlideOver(false)} /> */}
           <div className="fixed inset-0 z-40" onClick={() => setShowRequestSlideOver(false)} />
           <div className="fixed inset-y-0 right-0 z-50 flex items-center justify-end">
-            <div className="bg-white w-full md:w-[600px] h-full shadow-2xl p-8 flex flex-col relative">
+            <div 
+              className="bg-white w-full md:w-[600px] h-full shadow-2xl p-8 flex flex-col relative"
+              onClick={(e) => e.stopPropagation()}
+            >
               <button className="absolute top-4 right-4" onClick={() => setShowRequestSlideOver(false)}>
                 <X className="h-5 w-5" />
               </button>
@@ -164,8 +167,14 @@ export default function CreditScorePage() {
         </>
       )}
       {showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+          onClick={() => { setShowConfirmModal(false); setPendingRequestClientId(null); }}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-lg font-bold mb-4">Conferma richiesta Credit Score</h3>
             <p className="mb-6">Vuoi richiedere un nuovo credit score per il cliente selezionato?</p>
             <div className="flex gap-4">
@@ -275,8 +284,14 @@ export default function CreditScorePage() {
           </div>
           {/* Modale di conferma eliminazione */}
           {deleteModalOpen && reportToDelete && (
-            <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center">
-              <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full">
+            <div 
+              className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center"
+              onClick={() => setDeleteModalOpen(false)}
+            >
+              <div 
+                className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="mb-4 text-lg font-semibold">Conferma eliminazione</div>
                 <div className="mb-6 text-sm text-muted-foreground">Sei sicuro di voler eliminare questa richiesta di credit score? L'operazione non è reversibile.</div>
                 <div className="flex justify-end gap-2">
@@ -333,12 +348,13 @@ const CreditScoreDetailsSlideOver: React.FC<{
   return (
     <>
       {isOpen && (
-        <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={onClose} />
+        <div className="fixed inset-0 bg-black/50 z-30" onClick={onClose} />
       )}
       <div
         className={`fixed top-16 right-0 h-[calc(100vh-4rem)] w-full md:w-[600px] bg-background border-l border-border shadow-2xl transform transition-transform duration-300 ease-in-out z-40 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="h-full overflow-y-auto">
           <div className="sticky top-0 bg-background border-b border-border p-4 flex items-center justify-between">

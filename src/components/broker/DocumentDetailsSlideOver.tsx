@@ -311,14 +311,15 @@ const DocumentDetailsSlideOver: React.FC<DocumentDetailsSlideOverProps> = (props
                   clientId={clientId}
                   clientName={displayData?.clientName}
                   clientEmail={displayData?.clientEmail}
-                  onClose={() => setMode('view')}
+                  onClose={onClose}
                   onUploadSuccess={() => {
                     // Aggiorna lista documenti da localStorage
                     const allDocs = JSON.parse(localStorage.getItem('mockDocuments') || '[]');
                     const filtered = allDocs.filter((d: any) => d.clientName === displayData?.clientName && d.clientEmail === displayData?.clientEmail);
                     setDocs(filtered);
-                    setMode('view');
+                    // Chiudi completamente lo slide over dopo l'upload
                     if (onUploadSuccess) onUploadSuccess();
+                    onClose();
                   }}
                 />
               </div>

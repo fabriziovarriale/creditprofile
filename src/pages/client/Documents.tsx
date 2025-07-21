@@ -426,8 +426,14 @@ const ClientDocuments = () => {
       </Card>
 
       {isUploadModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-          <AnimatedCard className="w-full max-w-lg relative animate-fade-in">
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 p-4"
+          onClick={() => setIsUploadModalOpen(false)}
+        >
+          <AnimatedCard 
+            className="w-full max-w-lg relative animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setIsUploadModalOpen(false)}
               className="absolute top-3 right-3 text-muted-foreground hover:text-foreground text-2xl leading-none p-1 rounded-full hover:bg-muted"

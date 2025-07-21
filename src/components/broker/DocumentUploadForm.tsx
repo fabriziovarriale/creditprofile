@@ -184,25 +184,34 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
           clientEmail: client.email,
           creditProfileStatus: client.creditProfiles[0]?.status || 'pending',
         };
-        mockDocuments.push(newDoc);
-        // Aggiorna localStorage per persistenza
+        
+        // Aggiorna localStorage per persistenza (rimuove duplicazione)
         try {
           let docs = [];
           const saved = localStorage.getItem('mockDocuments');
           if (saved) {
             try {
               docs = JSON.parse(saved);
-              if (!Array.isArray(docs)) docs = [...mockDocuments];
+              if (!Array.isArray(docs)) docs = [];
             } catch {
-              docs = [...mockDocuments];
+              docs = [];
             }
-          } else {
-            docs = [...mockDocuments];
           }
+          // Aggiungi il nuovo documento ai documenti esistenti
           docs.push(newDoc);
           localStorage.setItem('mockDocuments', JSON.stringify(docs));
+          
+          // Aggiorna anche mockDocuments per consistenza in sessione
+          mockDocuments.push(newDoc);
         } catch {
-          localStorage.setItem('mockDocuments', JSON.stringify([...mockDocuments, newDoc]));
+          // In caso di errore, cerca di recuperare documenti esistenti prima di sovrascrivere
+          try {
+            const existing = JSON.parse(localStorage.getItem('mockDocuments') || '[]');
+            localStorage.setItem('mockDocuments', JSON.stringify([...existing, newDoc]));
+          } catch {
+            localStorage.setItem('mockDocuments', JSON.stringify([newDoc]));
+          }
+          mockDocuments.push(newDoc);
         }
         if (Array.isArray(client.documents)) {
           client.documents.push({
@@ -218,15 +227,16 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
       }
       toast.success('Documento caricato con successo!');
       
-      // Reset form
+      // Reset form (mantieni clientId se passato come prop)
       setFormData({
-        clientId: '',
+        clientId: propClientId || '',
         documentType: '',
         customDocumentType: '',
         file: null,
         notes: ''
       });
 
+      // Chiama callback e chiudi slide over
       onUploadSuccess?.();
       onClose();
 
