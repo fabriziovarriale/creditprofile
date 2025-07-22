@@ -32,6 +32,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
+  // Listener per l'evento custom dall'header
+  React.useEffect(() => {
+    const handleToggleMobileSidebar = () => {
+      setIsMobileMenuOpen(prev => !prev);
+    };
+
+    window.addEventListener('toggleMobileSidebar', handleToggleMobileSidebar);
+    return () => {
+      window.removeEventListener('toggleMobileSidebar', handleToggleMobileSidebar);
+    };
+  }, []);
+
   const baseNavigation = {
     broker: [
       { name: 'Dashboard', href: '/broker/dashboard', icon: Home },
@@ -76,7 +88,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <div className="md:hidden mb-4 px-2">
               <Link to={`/${role}/dashboard`} className="flex items-center">
                 <Logo className="h-8 w-auto" />
-                <span className="ml-2 font-semibold text-lg">CreditProfile</span>
+                {/* <span className="ml-2 font-semibold text-lg">CreditProfile</span> */}
               </Link>
             </div>
 
@@ -110,28 +122,13 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </nav>
         </aside>
 
-        {/* Mobile menu toggle per navbar integrata */}
-        {!onToggleSlideOver && (
-          <div className="md:hidden fixed top-4 left-4 z-30">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-foreground hover:bg-accent"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              aria-label={isMobileMenuOpen ? "Chiudi menu" : "Apri menu"}
-            >
-              {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </Button>
-          </div>
-        )}
-
-        {/* Main content con margine dinamico */}
-        <main 
-          className={`flex-1 overflow-y-auto ${isSlideOverOpen ? 'md:mr-[500px]' : ''}`}
-          style={{ transition: 'margin-right 0.3s ease-in-out' }}
-        >
-          <Outlet />
-        </main>
+      {/* Main content con margine dinamico */}
+      <main 
+        className={`flex-1 overflow-y-auto ${isSlideOverOpen ? 'md:mr-[500px]' : ''}`}
+        style={{ transition: 'margin-right 0.3s ease-in-out' }}
+      >
+        <Outlet />
+      </main>
       </div>
       {isMobileMenuOpen && (
         <div

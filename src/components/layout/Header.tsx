@@ -12,9 +12,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { PanelRight, PanelRightClose, Bell } from 'lucide-react';
 import Logo from '@/components/ui/Logo';
+import { Bell } from 'lucide-react';
 import { useState } from 'react';
+import { Menu } from 'lucide-react';
 
 interface HeaderProps {
   isSlideOverOpen?: boolean;
@@ -54,14 +55,24 @@ const Header: React.FC<HeaderProps> = ({
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleLogout = async () => {
-    if (!supabase) return;
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error("Errore durante il logout: " + error.message);
-    } else {
-      toast.success("Logout effettuato con successo!");
-      navigate('/login');
-    }
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith('sb-')) localStorage.removeItem(key);
+      if (key.includes('supabase')) localStorage.removeItem(key);
+    });
+    Object.keys(sessionStorage).forEach((key) => {
+      if (key.startsWith('sb-')) sessionStorage.removeItem(key);
+      if (key.includes('supabase')) sessionStorage.removeItem(key);
+    });
+    // Rimozione cookie sb-*
+    document.cookie.split(';').forEach((c) => {
+      if (c.trim().startsWith('sb-')) {
+        document.cookie = c
+          .replace(/^ +/, '')
+          .replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/');
+      }
+    });
+    // Hard reload per azzerare tutto lo stato
+    window.location.replace('/login');
   };
 
   const handleNotificationClick = (id: string, link?: string) => {
@@ -103,12 +114,28 @@ const Header: React.FC<HeaderProps> = ({
   return (
     <header className="border-b bg-card text-card-foreground">
       <div className="flex h-16 items-center px-4 justify-between">
-        {/* Logo Credit Profile */}
-        <div className="flex items-center">
-          <Logo className="h-8 w-auto" />
+        {/* Logo e hamburger menu (mobile) a sinistra */}
+        <div className="flex items-center gap-2">
+          <Logo iconSize={24} textSize={18} />
+          {/* Pulsante hamburger per mobile accanto al logo */}
+          <div className="md:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-black bg-white hover:bg-gray-100 border border-gray-300 shadow h-8 w-8"
+              onClick={() => {
+                // Qui dovremmo triggerare l'apertura della sidebar
+                // Per ora uso un evento custom che il DashboardLayout può intercettare
+                window.dispatchEvent(new CustomEvent('toggleMobileSidebar'));
+              }}
+              aria-label="Apri menu"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
-        {/* User Menu + Notifiche */}
+        {/* User Menu + Notifiche a destra */}
         <div className="flex items-center gap-4">
           {/* Notifiche */}
           <div className="relative">

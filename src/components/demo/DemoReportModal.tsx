@@ -215,7 +215,7 @@ const DemoReportModal = ({ profile }: DemoReportModalProps) => {
   const clientDocs = getDocumentsForClient(clientNameForDocs, email);
 
   return (
-    <div className="p-6 space-y-8">
+        <div className="p-6 space-y-8">
           {/* Dati anagrafici */}
           <section className="bg-gray-50 rounded-xl p-6">
             <h2 className="text-2xl font-bold mb-2">Dati anagrafici</h2>
@@ -471,7 +471,7 @@ const DemoReportModal = ({ profile }: DemoReportModalProps) => {
               )) : <span className="text-muted-foreground">Nessuna selezionata</span>}
             </div>
           </section>
-        </div>
+    </div>
   );
 };
 
