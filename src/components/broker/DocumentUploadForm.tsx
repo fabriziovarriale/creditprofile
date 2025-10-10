@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,8 +16,11 @@ import {
   Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { mockClients } from '@/mocks/broker-data';
-import { mockDocuments } from '@/mocks/documents-data';
+import { getBrokerClients } from '@/services/clientsService';
+import { createDocument } from '@/services/documentsService';
+import { extractPDFContent, updateDocumentWithExtractedContent, markDocumentExtractionFailed } from '@/services/pdfExtractionService';
+import { getOrCreateCreditProfile } from '@/services/creditProfilesService';
+import { useAuth } from '@/components/providers/SupabaseProvider';
 
 interface DocumentUploadFormProps {
   onClose: () => void;
@@ -27,17 +30,44 @@ interface DocumentUploadFormProps {
   clientEmail?: string;
 }
 
-// Utility per leggere i clienti persistiti
-function getPersistedClients() {
-  const saved = localStorage.getItem('mockClients');
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch {
-      return mockClients;
+// Hook per caricare i clienti del broker
+function useBrokerClients() {
+  const { profile: brokerUser } = useAuth();
+  const [clients, setClients] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    
+    async function loadClients() {
+      if (brokerUser?.id) {
+        setLoading(true);
+        try {
+          const brokerClients = await getBrokerClients(brokerUser.id);
+          if (isMounted) {
+            setClients(brokerClients);
+          }
+        } catch (error) {
+          console.error('Errore caricamento clienti:', error);
+          if (isMounted) {
+            setClients([]);
+          }
+        } finally {
+          if (isMounted) {
+            setLoading(false);
+          }
+        }
+      }
     }
-  }
-  return mockClients;
+
+    loadClients();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [brokerUser?.id]);
+
+  return { clients, loading };
 }
 
 const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
@@ -57,14 +87,9 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
   
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  // Stato clienti persistenti
-  const [clients, setClients] = useState(getPersistedClients());
-  // Aggiorna i clienti se cambia localStorage (es: nuovo cliente aggiunto)
-  React.useEffect(() => {
-    const onStorage = () => setClients(getPersistedClients());
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
+  // Carica i clienti del broker
+  const { clients, loading } = useBrokerClients();
+  const { profile: brokerUser } = useAuth();
 
   const documentTypes = [
     'Documento di identità',
@@ -80,11 +105,26 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
     'Altro (specifica)'
   ];
 
+  const toastRef = useRef<{ type: 'success' | 'error', message: string } | null>(null);
+
+  // Gestisce i toast in useEffect per evitare problemi durante il rendering
+  useEffect(() => {
+    if (toastRef.current) {
+      const { type, message } = toastRef.current;
+      if (type === 'success') {
+        toast.success(message);
+      } else {
+        toast.error(message);
+      }
+      toastRef.current = null;
+    }
+  });
+
   const handleFileSelect = (file: File) => {
     // Verifica dimensione file (max 10MB)
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
-      toast.error('Il file è troppo grande. Dimensione massima: 10MB');
+      toastRef.current = { type: 'error', message: 'Il file è troppo grande. Dimensione massima: 10MB' };
       return;
     }
 
@@ -101,12 +141,12 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      toast.error('Tipo di file non supportato. Usa: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX');
+      toastRef.current = { type: 'error', message: 'Tipo di file non supportato. Usa: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX' };
       return;
     }
 
     setFormData(prev => ({ ...prev, file }));
-    toast.success('File selezionato correttamente');
+    toastRef.current = { type: 'success', message: 'File selezionato correttamente' };
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -147,12 +187,12 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
     e.preventDefault();
     
     if (!formData.clientId || !formData.documentType || !formData.file) {
-      toast.error('Compila tutti i campi obbligatori');
+      toastRef.current = { type: 'error', message: 'Compila tutti i campi obbligatori' };
       return;
     }
 
     if (formData.documentType === 'Altro (specifica)' && !formData.customDocumentType) {
-      toast.error('Specifica il tipo di documento');
+      toastRef.current = { type: 'error', message: 'Specifica il tipo di documento' };
       return;
     }
 
@@ -166,66 +206,81 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
       const client = propClientId && propClientName && propClientEmail
         ? { id: propClientId, firstName: propClientName.split(' ')[0], lastName: propClientName.split(' ').slice(1).join(' '), email: propClientEmail, creditProfiles: [] }
         : clients.find(c => c.id === formData.clientId);
-      if (client) {
-        const fileUrl = URL.createObjectURL(formData.file);
-        const docId = 'd' + Math.floor(Math.random() * 1000000);
+      if (client && brokerUser?.id) {
         const docType = formData.documentType === 'Altro (specifica)' ? formData.customDocumentType : formData.documentType;
-        const newDoc = {
-          id: docId,
-          documentType: docType,
-          fileName: formData.file.name,
-          fileSizeKb: Math.round(formData.file.size / 1024),
-          status: 'pending' as const,
-          uploadedAt: new Date().toISOString(),
-          filePath: fileUrl,
-          creditProfileId: client.creditProfiles[0]?.id || '',
-          uploadedByUserId: '1', // mock
-          clientName: client.firstName + ' ' + client.lastName,
-          clientEmail: client.email,
-          creditProfileStatus: client.creditProfiles[0]?.status || 'pending',
-        };
         
-        // Aggiorna localStorage per persistenza (rimuove duplicazione)
-        try {
-          let docs = [];
-          const saved = localStorage.getItem('mockDocuments');
-          if (saved) {
-            try {
-              docs = JSON.parse(saved);
-              if (!Array.isArray(docs)) docs = [];
-            } catch {
-              docs = [];
-            }
-          }
-          // Aggiungi il nuovo documento ai documenti esistenti
-          docs.push(newDoc);
-          localStorage.setItem('mockDocuments', JSON.stringify(docs));
+        // Crea o recupera il profilo credito del cliente
+        const creditProfile = await getOrCreateCreditProfile(client.id, brokerUser.id);
+        
+        if (!creditProfile) {
+          toastRef.current = { type: 'error', message: 'Errore: impossibile creare il profilo credito per il cliente' };
+          return;
+        }
+        
+        // Crea il documento nel database
+        const newDocument = await createDocument({
+          credit_profile_id: creditProfile.id,
+          uploaded_by_user_id: client.id, // Il cliente che carica il documento
+          document_type: docType,
+          file_path: `/uploads/${client.id}/${formData.file.name}`, // Percorso simulato
+          file_name: formData.file.name,
+          file_size_kb: Math.round(formData.file.size / 1024),
+          status: 'pending'
+        });
+        
+        if (!newDocument) {
+          toastRef.current = { type: 'error', message: 'Errore durante il salvataggio del documento nel database' };
+          return;
+        }
+        
+        console.log('Documento salvato nel database:', newDocument);
+        
+        // Se è un PDF, estrai il contenuto per l'AI
+        if (formData.file.type === 'application/pdf') {
+          console.log('📄 Estrazione contenuto PDF per l\'AI...');
           
-          // Aggiorna anche mockDocuments per consistenza in sessione
-          mockDocuments.push(newDoc);
-        } catch {
-          // In caso di errore, cerca di recuperare documenti esistenti prima di sovrascrivere
           try {
-            const existing = JSON.parse(localStorage.getItem('mockDocuments') || '[]');
-            localStorage.setItem('mockDocuments', JSON.stringify([...existing, newDoc]));
-          } catch {
-            localStorage.setItem('mockDocuments', JSON.stringify([newDoc]));
+            const extractionResult = await extractPDFContent(formData.file);
+            
+            if (extractionResult.success && extractionResult.content) {
+              await updateDocumentWithExtractedContent(newDocument.id, extractionResult.content);
+              console.log('✅ Contenuto PDF estratto e salvato per l\'AI');
+              
+              // Mostra informazioni estratte nell'toast
+              const metadata = extractionResult.content.metadata;
+              if (metadata.containsCF) {
+                toastRef.current = { 
+                  type: 'success', 
+                  message: `Documento caricato! Rilevato codice fiscale: ${metadata.detectedCF}` 
+                };
+              } else {
+                toastRef.current = { 
+                  type: 'success', 
+                  message: `Documento caricato! Estratte ${metadata.wordCount} parole per l'analisi AI` 
+                };
+              }
+            } else {
+              await markDocumentExtractionFailed(newDocument.id, extractionResult.error || 'Errore sconosciuto');
+              console.warn('⚠️ Estrazione PDF fallita:', extractionResult.error);
+              toastRef.current = { 
+                type: 'success', 
+                message: 'Documento caricato! (Estrazione contenuto non riuscita)' 
+              };
+            }
+          } catch (extractionError) {
+            console.error('❌ Errore durante estrazione PDF:', extractionError);
+            await markDocumentExtractionFailed(newDocument.id, 'Errore tecnico durante estrazione');
+            toastRef.current = { 
+              type: 'success', 
+              message: 'Documento caricato! (Estrazione contenuto non riuscita)' 
+            };
           }
-          mockDocuments.push(newDoc);
+        } else {
+          toastRef.current = { type: 'success', message: 'Documento caricato con successo!' };
         }
-        if (Array.isArray(client.documents)) {
-          client.documents.push({
-            id: docId,
-            documentType: docType,
-            fileName: formData.file.name,
-            fileSizeKb: Math.round(formData.file.size / 1024),
-            status: 'pending' as const,
-            uploadedAt: new Date().toISOString(),
-          });
-        }
-        console.log('Documento aggiunto:', newDoc);
+      } else {
+        toastRef.current = { type: 'success', message: 'Documento caricato con successo!' };
       }
-      toast.success('Documento caricato con successo!');
       
       // Reset form (mantieni clientId se passato come prop)
       setFormData({
@@ -241,7 +296,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
       onClose();
 
     } catch (error) {
-      toast.error('Errore durante il caricamento del documento');
+      toastRef.current = { type: 'error', message: 'Errore durante il caricamento del documento' };
     } finally {
       setIsUploading(false);
     }
@@ -286,11 +341,21 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
                   <SelectValue placeholder="Seleziona un cliente" />
                 </SelectTrigger>
                 <SelectContent>
-                  {clients.map(client => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.firstName} {client.lastName} ({client.email})
+                  {loading ? (
+                    <SelectItem value="loading" disabled>
+                      Caricamento clienti...
                     </SelectItem>
-                  ))}
+                  ) : clients.length === 0 ? (
+                    <SelectItem value="no-clients" disabled>
+                      Nessun cliente disponibile
+                    </SelectItem>
+                  ) : (
+                    clients.filter(client => client.id && client.id.trim() !== '').map(client => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.firstName} {client.lastName} ({client.email})
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">Seleziona il cliente per cui stai caricando il documento</p>
@@ -317,7 +382,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
                   <SelectValue placeholder="Seleziona il tipo di documento" />
                 </SelectTrigger>
                 <SelectContent>
-                  {documentTypes.map((type) => (
+                  {documentTypes.filter(type => type && type.trim() !== '').map((type) => (
                     <SelectItem key={type} value={type}>
                       {type}
                     </SelectItem>

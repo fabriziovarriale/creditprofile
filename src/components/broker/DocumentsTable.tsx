@@ -10,7 +10,18 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Document } from '@/mocks/documents-data';
+// Definizione locale
+interface Document {
+  id: number;
+  credit_profile_id: number;
+  uploaded_by_user_id: string;
+  document_type: string;
+  file_path: string;
+  file_name: string;
+  file_size_kb: number;
+  status: 'pending' | 'approved' | 'rejected' | 'requires_changes';
+  uploaded_at: string;
+}
 import { Eye, FileText, Download, User, AlertCircle, CheckCircle, Clock, XCircle, Upload } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 
@@ -134,7 +145,7 @@ const DocumentsTable: React.FC<DocumentsTableProps> = ({
                                 <TooltipContent>{getStatusLabel(doc.status)}</TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
-                            <span className="truncate flex-1">{doc.documentType}</span>
+                            <span className="truncate flex-1">{doc.document_type}</span>
                           </div>
                         ))}
                         {client.documents.length > 3 && (

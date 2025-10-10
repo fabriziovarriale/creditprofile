@@ -1,8 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Document } from '@/mocks/documents-data';
+// Utilizziamo l'interfaccia DocumentWithClient dal servizio
+import { DocumentWithClient } from '@/services/documentsService';
+
+// Interfaccia Document compatibile con DocumentWithClient
+interface Document {
+  id: number;
+  document_type: string;
+  file_name: string;
+  file_size_kb: number;
+  status: 'pending' | 'approved' | 'rejected' | 'requires_changes';
+  uploaded_at: string;
+  file_path?: string;
+  credit_profile_id?: number;
+  uploaded_by_user_id?: string;
+  clientName?: string;
+  clientEmail?: string;
+  creditProfileStatus?: string;
+}
 import { Separator } from "@/components/ui/separator";
 import DocumentUploadForm from './DocumentUploadForm';
 import { 
@@ -17,9 +34,10 @@ import {
   Upload, 
   AlertCircle,
   Clock,
+  Loader2,
 } from 'lucide-react';
-import { mockDocuments } from '@/mocks/documents-data';
-import { mockClients } from '@/mocks/broker-data';
+import { getBrokerDocuments, deleteDocument } from '@/services/documentsService';
+import { getBrokerClients } from '@/services/clientsService';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/providers/SupabaseProvider';
 import {
@@ -103,7 +121,9 @@ const formatFileSize = (sizeKb: number) => {
   return `${(sizeKb / 1024).toFixed(1)} MB`;
 };
 
-const getFileTypeFromName = (fileName: string) => {
+const getFileTypeFromName = (fileName: string | null | undefined) => {
+  if (!fileName) return 'File sconosciuto';
+  
   const extension = fileName.split('.').pop()?.toLowerCase();
   switch (extension) {
     case 'pdf': return 'PDF Document';
@@ -119,23 +139,14 @@ const getFileTypeFromName = (fileName: string) => {
 };
 
 const updateClientDocumentStatus = (docId: string, newStatus: string) => {
-  const clients = JSON.parse(localStorage.getItem('mockClients') || '[]');
-  let updated = false;
-  for (const client of clients) {
-    if (Array.isArray(client.documents)) {
-      const idx = client.documents.findIndex((d: any) => d.id === docId);
-      if (idx !== -1) {
-        client.documents[idx].status = newStatus;
-        updated = true;
-      }
-    }
-  }
-  if (updated) localStorage.setItem('mockClients', JSON.stringify(clients));
+  // Questa funzione non è più necessaria con i dati reali
+  // I documenti vengono aggiornati direttamente nel database
+  console.log('Aggiornamento status documento:', docId, newStatus);
 };
 
 const DocumentDetailsSlideOver: React.FC<DocumentDetailsSlideOverProps> = (props) => {
   const { isOpen, onClose, document, selectedClientData, mode: propMode = 'view', onUploadSuccess } = props;
-  const { supabase } = useAuth();
+  const { supabase, profile: brokerUser } = useAuth();
   // Hook sempre in cima, mai dentro if/return
   const [mode, setMode] = useState<'view' | 'upload'>(propMode);
   const [docs, setDocs] = useState<Document[]>(selectedClientData?.documents || (document ? [document] : []));
@@ -144,11 +155,210 @@ const DocumentDetailsSlideOver: React.FC<DocumentDetailsSlideOverProps> = (props
   const [loadingApprove, setLoadingApprove] = useState(false);
   const [loadingReject, setLoadingReject] = useState(false);
   const [docToDelete, setDocToDelete] = useState<Document | null>(null);
+  const [clients, setClients] = useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [renderKey, setRenderKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(Date.now());
+  const [forceRemount, setForceRemount] = useState(false);
 
+  // Helpers robusti per aggiornare/rimuovere documenti nello stato locale
+  const updateDocInState = (docId: number | string, partial: Partial<Document>) => {
+    const targetId = Number(docId);
+    setDocs(prev => {
+      const next = prev.map(d => Number(d.id) === targetId ? { ...d, ...partial } : { ...d });
+      const foundAfter = next.find(d => Number(d.id) === targetId);
+      console.log('🧩 updateDocInState', { targetId, partial, foundAfter });
+      return next;
+    });
+    setRenderKey(prev => prev + 1);
+    setLastUpdate(Date.now());
+  };
+
+  const removeDocInState = (docId: number | string) => {
+    const targetId = Number(docId);
+    setDocs(prev => {
+      const beforeIds = prev.map(d => d.id);
+      const next = prev.filter(d => Number(d.id) !== targetId).map(d => ({ ...d }));
+      console.log('🧹 removeDocInState', { targetId, beforeIds, afterIds: next.map(d => d.id) });
+      return next;
+    });
+    setRenderKey(prev => prev + 1);
+    setLastUpdate(Date.now());
+  };
+
+  // Inizializza i docs solo quando lo slide-over si apre o cambia contesto
+  const initializedFromPropsRef = useRef(false);
   useEffect(() => {
+    if (isOpen && !initializedFromPropsRef.current) {
     setMode(propMode);
     setDocs(selectedClientData?.documents || (document ? [document] : []));
-  }, [isOpen, selectedClientData, document, propMode]);
+      initializedFromPropsRef.current = true;
+    }
+    if (!isOpen) {
+      initializedFromPropsRef.current = false;
+    }
+  }, [isOpen, propMode, selectedClientData?.clientEmail, document?.id]);
+
+  // Se cambia il cliente o il documento visualizzato, re-inizializza alla prossima apertura
+  useEffect(() => {
+    initializedFromPropsRef.current = false;
+  }, [selectedClientData?.clientEmail, document?.id]);
+
+  // Realtime: ascolta UPDATE/DELETE sulla tabella e filtra in client sugli ID visibili
+  useEffect(() => {
+    if (!isOpen || !supabase) return;
+    const currentIds = docs.map(d => Number(d.id));
+    if (currentIds.length === 0) return;
+
+    console.log('📡 Sottoscrizione realtime (client-side filter) IDs:', currentIds.join(','));
+    const channel = supabase
+      .channel(`documents-slideover-${currentIds.join('-')}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'documents' }, (payload: any) => {
+        const updated = payload.new;
+        const idNum = Number(updated?.id);
+        if (currentIds.includes(idNum)) {
+          console.log('🔔 UPDATE realtime (match) documento:', idNum, 'status:', updated?.status);
+          updateDocInState(idNum, { status: updated?.status, file_name: updated?.file_name, file_path: updated?.file_path });
+        } else {
+          console.log('ℹ️ UPDATE realtime ignorato per id:', idNum);
+        }
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'documents' }, (payload: any) => {
+        const deletedId = Number(payload.old?.id);
+        if (currentIds.includes(deletedId)) {
+          console.log('🔔 DELETE realtime (match) documento:', deletedId);
+          removeDocInState(deletedId);
+        } else {
+          console.log('ℹ️ DELETE realtime ignorato per id:', deletedId);
+        }
+      })
+      .subscribe((status) => {
+        console.log('📡 Stato canale realtime:', status);
+      });
+
+    return () => {
+      console.log('📴 Disiscrizione realtime document IDs:', currentIds.join(','));
+      supabase.removeChannel(channel);
+    };
+  // dipendenza sugli ID per aggiornare la sottoscrizione quando cambia l'elenco
+  }, [isOpen, supabase, docs.map(d => d.id).join(',')]);
+
+  // Debug: monitora i cambiamenti di docs
+  useEffect(() => {
+    console.log('📊 Docs cambiati:', docs.map(d => ({ id: d.id, status: d.status })));
+  }, [docs]);
+
+  // Funzione per ricaricare i dati freschi dal database
+  const refreshClientDocuments = async () => {
+    if (!brokerUser?.id || !selectedClientData) {
+      console.log('⚠️ Impossibile ricaricare: mancano broker o client data');
+      return;
+    }
+
+    setRefreshing(true);
+    console.log('🔄 Ricaricamento dati freschi dal database...');
+    
+    try {
+      // Ricarica tutti i documenti del broker
+      const freshDocuments = await getBrokerDocuments(brokerUser.id);
+      console.log('📄 Documenti freschi caricati:', freshDocuments.length);
+      
+      // Filtra i documenti del cliente corrente
+      const clientFreshDocs = freshDocuments.filter(d => 
+        d.clientName === selectedClientData.clientName && 
+        d.clientEmail === selectedClientData.clientEmail
+      );
+      
+      console.log('👤 Documenti cliente aggiornati:', clientFreshDocs.length);
+      console.log('📋 Dettagli documenti:', clientFreshDocs.map(d => ({ id: d.id, status: d.status, type: d.document_type })));
+      
+      // FORZA il re-render creando un array completamente nuovo
+      const newDocsArray = clientFreshDocs.length > 0 
+        ? clientFreshDocs.map(doc => ({ ...doc }))
+        : []; // Array vuoto esplicito
+      console.log('🔄 Creato nuovo array documenti:', newDocsArray);
+      console.log('🔄 Array vuoto?', newDocsArray.length === 0);
+      
+      // FORZA l'aggiornamento dell'array docs
+      console.log('🔄 Docs prima dell\'aggiornamento:', docs.length);
+      setDocs(() => {
+        console.log('🔄 Settando nuovo array docs:', newDocsArray.length);
+        return newDocsArray;
+      });
+      setDocuments(freshDocuments);
+      
+      // Se non ci sono più documenti, chiudi lo slide over dopo un breve delay
+      if (newDocsArray.length === 0) {
+        console.log('🚪 Nessun documento rimasto, chiudo lo slide over in 2 secondi...');
+        setTimeout(() => {
+          console.log('🚪 Chiusura automatica slide over');
+          toast.success('Tutti i documenti sono stati processati. Slide over chiuso automaticamente.');
+          onClose();
+        }, 2000);
+      }
+      
+      // STRATEGIA DRASTICA: Smonta e rimonta completamente il componente
+      console.log('🔄 Inizio smontaggio componente...');
+      setForceRemount(true);
+      
+      // Aspetta un tick per smontare
+      setTimeout(() => {
+        console.log('🔄 Rimontaggio componente con nuovi dati...');
+        const timestamp = Date.now();
+        setRenderKey(prev => prev + 1);
+        setLastUpdate(timestamp);
+        setForceRemount(false);
+        console.log('✅ Componente rimontato con timestamp:', timestamp);
+        
+        // ULTIMA RISORSA: Se anche questo non funziona, chiudi e riapri lo slide over
+        // Decommentare se necessario:
+        /*
+        setTimeout(() => {
+          console.log('🔄 ULTIMA RISORSA: Chiudo e riapro lo slide over...');
+          onClose();
+          setTimeout(() => {
+            // Qui dovremmo riaprire lo slide over, ma dipende dalla logica della pagina padre
+            console.log('🔄 Dovrei riaprire lo slide over ora...');
+          }, 100);
+        }, 100);
+        */
+      }, 50);
+      
+      // Notifica anche la pagina padre
+      if (onUploadSuccess) {
+        console.log('📡 Notifica pagina padre per sincronizzazione');
+        onUploadSuccess();
+      }
+      
+      console.log('✅ Ricaricamento completato con successo');
+      
+    } catch (error) {
+      console.error('❌ Errore durante il ricaricamento:', error);
+      toast.error('Errore durante l\'aggiornamento dei dati');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Carica clienti e documenti del broker
+  useEffect(() => {
+    async function loadData() {
+      if (brokerUser?.id) {
+        try {
+          const [brokerClients, brokerDocuments] = await Promise.all([
+            getBrokerClients(brokerUser.id),
+            getBrokerDocuments(brokerUser.id)
+          ]);
+          setClients(brokerClients);
+          setDocuments(brokerDocuments);
+        } catch (error) {
+          console.error('Errore caricamento dati:', error);
+        }
+      }
+    }
+    loadData();
+  }, [brokerUser?.id]);
 
   const displayData = selectedClientData || (document ? {
     clientName: document.clientName,
@@ -159,26 +369,55 @@ const DocumentDetailsSlideOver: React.FC<DocumentDetailsSlideOverProps> = (props
 
   const clientId = React.useMemo(() => {
     if (displayData?.clientEmail && displayData?.clientName) {
-      const found = mockClients.find(
-        c => `${c.firstName} ${c.lastName}` === displayData.clientName && c.email === displayData.clientEmail
+      const found = clients.find(
+        (c: any) => `${c.firstName} ${c.lastName}` === displayData.clientName && c.email === displayData.clientEmail
       );
       return found?.id || '';
     }
     return '';
-  }, [displayData]);
+  }, [displayData, clients]);
 
   const handleApprove = async (doc: Document) => {
     setLoadingApprove(true);
+    console.log('🚀 Inizio approvazione documento:', doc.id, 'status attuale:', doc.status);
+    
     try {
+      // Aggiornamento ottimistico UI
+      const previousDocs = docs;
+      setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, status: 'approved' } : { ...d }));
+      setRenderKey(prev => prev + 1);
+
+      // 1. Aggiorna il database PRIMA
+      console.log('1️⃣ Aggiornamento database...');
       const isNumericId = !isNaN(Number(doc.id));
       if (typeof supabase !== 'undefined' && supabase && isNumericId) {
         const { error } = await supabase.from('documents').update({ status: 'approved' }).eq('id', Number(doc.id));
         if (error) throw error;
+        console.log('✅ Documento approvato nel database:', doc.id);
       }
-      setDocumentStatus(doc, 'approved');
-      if (onUploadSuccess) onUploadSuccess();
-      toast.success('Documento approvato.');
+      
+      // 2. Recupera la riga aggiornata e sincronizza SOLO quel documento (evita race)
+      console.log('2️⃣ Recupero riga aggiornata...');
+      if (typeof supabase !== 'undefined' && supabase && isNumericId) {
+        const { data: updatedRow, error: selErr } = await supabase
+          .from('documents')
+          .select('id, status, file_name, file_path')
+          .eq('id', Number(doc.id))
+          .single();
+        if (selErr) {
+          console.warn('⚠️ Recupero riga fallito, mantengo lo stato ottimistico:', selErr.message);
+        } else if (updatedRow) {
+          updateDocInState(updatedRow.id, { status: updatedRow.status, file_name: updatedRow.file_name, file_path: updatedRow.file_path });
+        }
+      }
+      
+      toast.success('Documento approvato con successo!');
+      console.log('🎉 Approvazione completata con successo');
+      
     } catch (err: any) {
+      console.error('❌ Errore approvazione documento:', err);
+      // Ripristina stato precedente in caso di errore
+      setDocs(previous => previous.map(d => d));
       toast.error('Errore durante l\'approvazione: ' + (err.message || err));
     } finally {
       setLoadingApprove(false);
@@ -186,45 +425,116 @@ const DocumentDetailsSlideOver: React.FC<DocumentDetailsSlideOverProps> = (props
   };
   const handleReject = async (doc: Document) => {
     setLoadingReject(true);
+    console.log('🚀 Inizio rifiuto documento:', doc.id, 'status attuale:', doc.status);
+    
     try {
+      // Aggiornamento ottimistico UI
+      const previousDocs = docs;
+      setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, status: 'rejected' } : { ...d }));
+      setRenderKey(prev => prev + 1);
+
+      // 1. Aggiorna il database PRIMA
+      console.log('1️⃣ Aggiornamento database...');
       const isNumericId = !isNaN(Number(doc.id));
       if (typeof supabase !== 'undefined' && supabase && isNumericId) {
         const { error } = await supabase.from('documents').update({ status: 'rejected' }).eq('id', Number(doc.id));
         if (error) throw error;
+        console.log('✅ Documento rifiutato nel database:', doc.id);
       }
-      setDocumentStatus(doc, 'rejected');
-      if (onUploadSuccess) onUploadSuccess();
-      toast.success('Documento rifiutato.');
+      
+      // 2. Recupera la riga aggiornata e sincronizza SOLO quel documento (evita race)
+      console.log('2️⃣ Recupero riga aggiornata...');
+      if (typeof supabase !== 'undefined' && supabase && isNumericId) {
+        const { data: updatedRow, error: selErr } = await supabase
+          .from('documents')
+          .select('id, status, file_name, file_path')
+          .eq('id', Number(doc.id))
+          .single();
+        if (selErr) {
+          console.warn('⚠️ Recupero riga fallito, mantengo lo stato ottimistico:', selErr.message);
+        } else if (updatedRow) {
+          updateDocInState(updatedRow.id, { status: updatedRow.status, file_name: updatedRow.file_name, file_path: updatedRow.file_path });
+        }
+      }
+      
+      toast.success('Documento rifiutato con successo!');
+      console.log('🎉 Rifiuto completato con successo');
+      
     } catch (err: any) {
+      console.error('❌ Errore rifiuto documento:', err);
+      // Ripristina stato precedente in caso di errore
+      setDocs(previous => previous.map(d => d));
       toast.error('Errore durante il rifiuto: ' + (err.message || err));
     } finally {
       setLoadingReject(false);
     }
   };
 
-  const handleDeleteConfirmed = () => {
+  const handleDeleteConfirmed = async () => {
     if (!docToDelete) return;
-    setDocs(prev => prev.filter(d => d.id !== docToDelete.id));
-    const allDocs = JSON.parse(localStorage.getItem('mockDocuments') || '[]');
-    const updatedDocs = allDocs.filter((d: any) => d.id !== docToDelete.id);
-    localStorage.setItem('mockDocuments', JSON.stringify(updatedDocs));
-    if (onUploadSuccess) onUploadSuccess();
-    toast.success('Documento eliminato (mock).');
+    
+    console.log('🗑️ Inizio eliminazione documento:', docToDelete.id);
+    
+    try {
+      // Rimozione ottimistica dalla UI
+      const deletingId = docToDelete.id;
+      const previousDocs = docs;
+      setDocs(prev => prev.filter(d => d.id !== deletingId));
+      setRenderKey(prev => prev + 1);
+
+      // Elimina il documento dal database
+      const success = await deleteDocument(Number(docToDelete.id));
+      
+      if (success) {
+        console.log('✅ Documento eliminato dal database:', docToDelete.id);
+        
+        // Rimuovi localmente, il realtime/parent aggiornerà il resto
+        removeDocInState(docToDelete.id);
+        
+        toast.success('Documento eliminato con successo');
+        console.log('🎉 Eliminazione completata con successo');
+      } else {
+        console.error('❌ Errore eliminazione dal database');
+        // Ripristina lista in caso di fallimento
+        setDocs(previousDocs => previousDocs);
+        toast.error('Errore durante l\'eliminazione del documento');
+      }
+    } catch (error) {
+      console.error('❌ Errore eliminazione documento:', error);
+      // Ripristina lista in caso di errore
+      setDocs(previousDocs => previousDocs);
+      toast.error('Errore durante l\'eliminazione del documento');
+    }
+    
     setDocToDelete(null);
   };
 
   type DocumentStatus = Document['status'];
   const setDocumentStatus = (doc: Document, status: DocumentStatus) => {
-    // Aggiorna mockDocuments
-    const idx = mockDocuments.findIndex(d => d.id === doc.id);
-    if (idx !== -1) mockDocuments[idx].status = status;
-    setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, status } : d));
-    // Aggiorna localStorage dei documenti
-    const allDocs = JSON.parse(localStorage.getItem('mockDocuments') || '[]');
-    const updatedDocs = allDocs.map((d: any) => d.id === doc.id ? { ...d, status } : d);
-    localStorage.setItem('mockDocuments', JSON.stringify(updatedDocs));
-    // Aggiorna anche client.documents
-    updateClientDocumentStatus(doc.id, status);
+    console.log('🔄 Aggiornamento status documento:', doc.id, 'da', doc.status, 'a', status);
+    
+    // Crea un nuovo array completamente nuovo per forzare il re-render
+    setDocs(prev => {
+      const newDocs = prev.map(d => {
+        if (d.id === doc.id) {
+          const updatedDoc = { ...d, status };
+          console.log('📝 Documento aggiornato:', updatedDoc);
+          return updatedDoc;
+        }
+        return { ...d }; // Clona anche gli altri documenti
+      });
+      console.log('📋 Nuovo array documenti:', newDocs);
+      return newDocs;
+    });
+    
+    // Forza il re-render del componente
+    setRenderKey(prev => {
+      const newKey = prev + 1;
+      console.log('🔄 Nuovo render key:', newKey);
+      return newKey;
+    });
+    
+    console.log('✅ Status documento aggiornato localmente, forzato re-render');
   };
 
   return (
@@ -333,17 +643,37 @@ const DocumentDetailsSlideOver: React.FC<DocumentDetailsSlideOverProps> = (props
                     <Upload className="h-4 w-4 mr-2" /> Carica Nuovo Documento
                   </Button>
                 </div>
+                {/* Loader overlay durante il refresh */}
+                {refreshing && (
+                  <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-xl flex items-center gap-3">
+                      <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                      <span className="text-gray-700 font-medium">Aggiornamento dati in corso...</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Lista di tutti i documenti del cliente */}
+                {forceRemount ? (
+                  <div className="flex items-center justify-center min-h-[200px]">
+                    <div className="flex items-center gap-3">
+                      <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                      <span className="text-gray-700">Aggiornamento interfaccia...</span>
+                    </div>
+                  </div>
+                ) : (
+                <div key={`docs-container-${renderKey}-${lastUpdate}`}>
+                {console.log('🔍 Rendering container - docs.length:', docs.length, 'renderKey:', renderKey)}
                 {docs && docs.length > 0 ? (
-                  docs.map((doc) => {
-                    console.log('DEBUG DOC STATUS:', doc.id, doc.status);
+                  docs.map((doc, index) => {
+                    console.log('🔍 Rendering documento:', doc.id, 'status:', doc.status, 'renderKey:', renderKey, 'lastUpdate:', lastUpdate);
                     // Mostra i pulsanti solo se status === 'pending'
                     return (
-                      <Card key={doc.id}>
+                      <Card key={`doc-${doc.id}-${doc.status}-${renderKey}-${lastUpdate}-${index}`}>
                         <CardHeader>
                           <CardTitle className="text-lg flex items-center gap-2">
                             {getStatusIcon(doc.status)}
-                            <span className="truncate">{doc.documentType}</span>
+                            <span className="truncate">{doc.document_type}</span>
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -358,24 +688,24 @@ const DocumentDetailsSlideOver: React.FC<DocumentDetailsSlideOverProps> = (props
                             </div>
                             <div>
                               <span className="text-sm text-muted-foreground">Dimensione File</span>
-                              <div className="font-medium mt-1">{formatFileSize(doc.fileSizeKb)}</div>
+                              <div className="font-medium mt-1">{formatFileSize(doc.file_size_kb)}</div>
                             </div>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                             <div>
                               <span className="text-muted-foreground">Nome File</span>
-                              <div className="font-medium">{doc.fileName || 'N/A'}</div>
+                              <div className="font-medium">{doc.file_name || 'N/A'}</div>
                             </div>
                             <div>
                               <span className="text-muted-foreground">Tipo File</span>
-                              <div className="font-medium">{getFileTypeFromName(doc.fileName)}</div>
+                              <div className="font-medium">{getFileTypeFromName(doc.file_name)}</div>
                             </div>
                           </div>
                           <div className="text-sm">
                             <span className="text-muted-foreground">Caricato il</span>
                             <div className="font-medium flex items-center gap-2">
                               <Calendar className="h-4 w-4 text-muted-foreground" />
-                              {new Date(doc.uploadedAt).toLocaleDateString('it-IT', {
+                              {new Date(doc.uploaded_at).toLocaleDateString('it-IT', {
                                 year: 'numeric',
                                 month: 'long',
                                 day: 'numeric',
@@ -384,7 +714,7 @@ const DocumentDetailsSlideOver: React.FC<DocumentDetailsSlideOverProps> = (props
                               })}
                             </div>
                           </div>
-                          {doc.filePath && (
+                          {doc.file_path && (
                             <>
                               <Separator />
                               {/* BLOCCO DUPLICATO RIMOSSO: bottoni Scarica Documento e Anteprima */}
@@ -401,19 +731,67 @@ const DocumentDetailsSlideOver: React.FC<DocumentDetailsSlideOverProps> = (props
                               </p>
                             </div>
                           )}
-                          {doc.status === 'pending' && (
+                          
+                          {/* Debug temporaneo */}
+                          <div className="mt-4 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                            <strong>🔍 Debug:</strong> Status: {doc.status} | ID: {doc.id} | Key: {renderKey} | Update: {lastUpdate}
+                          </div>
+                          
+                          {doc.status === 'pending' ? (
                             <div className="flex gap-4 mt-6">
-                              <Button variant="default" onClick={async () => { await handleApprove(doc); }} disabled={loadingApprove}>
-                                <CheckCircle className="h-4 w-4 mr-1" /> {loadingApprove ? 'Approvazione...' : 'Approva'}
+                              <Button 
+                                variant="default" 
+                                onClick={async () => { 
+                                  console.log('🔘 Click Approva per documento:', doc.id, 'status:', doc.status);
+                                  await handleApprove(doc); 
+                                }} 
+                                disabled={loadingApprove || loadingReject}
+                                className="min-w-[120px]"
+                              >
+                                {loadingApprove ? (
+                                  <>
+                                    <Clock className="h-4 w-4 mr-1 animate-spin" />
+                                    Approvazione...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    Approva
+                                  </>
+                                )}
                               </Button>
-                              <Button variant="destructive" onClick={async () => { await handleReject(doc); }} disabled={loadingReject}>
-                                <XCircle className="h-4 w-4 mr-1" /> {loadingReject ? 'Rifiuto...' : 'Rifiuta'}
+                              <Button 
+                                variant="destructive" 
+                                onClick={async () => { 
+                                  console.log('🔘 Click Rifiuta per documento:', doc.id, 'status:', doc.status);
+                                  await handleReject(doc); 
+                                }} 
+                                disabled={loadingApprove || loadingReject}
+                                className="min-w-[120px]"
+                              >
+                                {loadingReject ? (
+                                  <>
+                                    <Clock className="h-4 w-4 mr-1 animate-spin" />
+                                    Rifiuto...
+                                  </>
+                                ) : (
+                                  <>
+                                    <XCircle className="h-4 w-4 mr-1" />
+                                    Rifiuta
+                                  </>
+                                )}
                               </Button>
+                            </div>
+                          ) : (
+                            <div className="mt-6 p-3 bg-blue-50 rounded-lg">
+                              <p className="text-sm text-blue-700">
+                                ✅ Documento già processato con status: <strong>{doc.status}</strong>
+                              </p>
                             </div>
                           )}
                           <div className="flex gap-2 mt-4">
                             <Button variant="outline" className="flex-1" asChild>
-                              <a href={doc.filePath} download={doc.fileName} target="_blank" rel="noopener noreferrer">
+                              <a href={doc.file_path} download={doc.file_name} target="_blank" rel="noopener noreferrer">
                                 <Download className="h-4 w-4 mr-2" />
                                 Scarica Documento
                               </a>
@@ -432,7 +810,28 @@ const DocumentDetailsSlideOver: React.FC<DocumentDetailsSlideOverProps> = (props
                   })
                 ) : (
                   <div className="flex items-center justify-center min-h-[200px]">
-                    <p className="text-muted-foreground">Nessun documento disponibile</p>
+                    <div className="text-center">
+                      <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Nessun documento</h3>
+                      <p className="text-muted-foreground">
+                        {docs.length === 0 && renderKey > 0 
+                          ? 'Tutti i documenti sono stati eliminati o processati.'
+                          : 'Non ci sono documenti per questo cliente.'
+                        }
+                      </p>
+                      {docs.length === 0 && renderKey > 0 && (
+                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm text-blue-700 font-medium">
+                            ⏰ Questo pannello si chiuderà automaticamente tra pochi secondi...
+                          </p>
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-400 mt-2">
+                        Debug: docs.length = {docs.length}, renderKey = {renderKey}
+                      </p>
+                    </div>
+                  </div>
+                )}
                   </div>
                 )}
               </div>
@@ -452,7 +851,7 @@ const DocumentDetailsSlideOver: React.FC<DocumentDetailsSlideOverProps> = (props
               <FileText className="h-16 w-16 text-muted-foreground mb-4" />
               <p className="text-lg font-semibold mb-2">Anteprima Documento</p>
               <p className="text-muted-foreground mb-4">(Questa è una preview finta)</p>
-              <p className="font-mono text-sm bg-muted px-4 py-2 rounded">{docs.find(d => d.id === previewFile)?.fileName || 'Nessun file selezionato'}</p>
+              <p className="font-mono text-sm bg-muted px-4 py-2 rounded">{docs.find(d => d.id === previewFile)?.file_name || 'Nessun file selezionato'}</p>
               <div className="mt-6 text-center text-muted-foreground">Anteprima non disponibile per questo tipo di file</div>
             </div>
           </div>

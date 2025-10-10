@@ -31,17 +31,25 @@ export const SupabaseProvider = ({
   const [loadingProfile, setLoadingProfile] = useState(true)
 
   useEffect(() => {
+    let isMounted = true;
+    
     if (!initialSupabaseClient) {
       console.error("Supabase client non fornito a SupabaseProvider")
-      setLoadingSession(false)
-      setLoadingProfile(false)
+      if (isMounted) {
+        setLoadingSession(false)
+        setLoadingProfile(false)
+      }
       return
     }
 
-    setLoadingSession(true)
-    setLoadingProfile(true)
+    if (isMounted) {
+      setLoadingSession(true)
+      setLoadingProfile(true)
+    }
 
     initialSupabaseClient.auth.getSession().then(({ data: { session: currentSession }, error }) => {
+      if (!isMounted) return;
+      
       if (error) {
         console.error('SupabaseProvider: Errore nel getSession iniziale:', error.message);
         setSession(null);
@@ -52,33 +60,38 @@ export const SupabaseProvider = ({
       }
       setSession(currentSession);
 
-      if (currentSession?.user) {
-        console.log("SupabaseProvider (getSession): Tentativo di fetch del profilo per l'utente:", currentSession.user.id, "USANDO .then().catch()");
-        setLoadingProfile(true);
+              if (currentSession?.user) {
+          console.log("SupabaseProvider (getSession): Tentativo di fetch del profilo per l'utente:", currentSession.user.id, "USANDO .then().catch()");
+          if (isMounted) {
+            setLoadingProfile(true);
+          }
         
         initialSupabaseClient
-          .from('users')
-          .select('*')
-          .eq('id', currentSession.user.id)
-          .maybeSingle<UserProfileType>()
+          .rpc('get_user_profile', { user_uuid: currentSession.user.id })
           .then(({ data: profileData, error: profileErrorObj }) => {
+            if (!isMounted) return;
+            
             if (profileErrorObj) {
-              console.error(`SupabaseProvider (getSession using .then): Errore DB nel fetch del profilo utente iniziale:`, profileErrorObj);
+              console.error(`SupabaseProvider (getSession using .then): Errore RPC nel fetch del profilo utente iniziale:`, profileErrorObj);
               setUserProfile(null);
-            } else if (profileData) {
-              console.log(`SupabaseProvider (getSession using .then): Profilo utente iniziale CARICATO:`, profileData);
-              setUserProfile(profileData);
+            } else if (profileData && profileData.length > 0) {
+              console.log(`SupabaseProvider (getSession using .then): Profilo utente iniziale CARICATO:`, profileData[0]);
+              setUserProfile(profileData[0]);
             } else {
-              console.warn(`SupabaseProvider (getSession using .then): Profilo utente iniziale NON TROVATO (null restituito da maybeSingle).`);
+              console.warn(`SupabaseProvider (getSession using .then): Profilo utente iniziale NON TROVATO (RPC ritornò array vuoto).`);
               setUserProfile(null);
             }
           })
           // @ts-ignore
           .catch((e: any) => {
+            if (!isMounted) return;
+            
             console.error(`SupabaseProvider (getSession using .then): Eccezione CATTURATA nel fetch del profilo utente iniziale:`, e);
             setUserProfile(null);
           })
           .finally(() => {
+            if (!isMounted) return;
+            
             setLoadingProfile(false); 
             console.log("SupabaseProvider (getSession using .then): Fetch profilo completato (finally), loadingProfile false.");
             setLoadingSession(false);
@@ -102,6 +115,8 @@ export const SupabaseProvider = ({
 
     const { data: { subscription } } = initialSupabaseClient.auth.onAuthStateChange(
       (event, newSession) => {
+        if (!isMounted) return;
+        
         console.log(`SupabaseProvider (onAuthStateChange): Evento: ${event}, sessione:`, newSession);
         setLoadingSession(true);
         setSession(newSession);
@@ -119,18 +134,15 @@ export const SupabaseProvider = ({
           console.log(`SupabaseProvider (onAuthStateChange: ${event}): Tentativo di fetch del profilo per l'utente:`, newSession.user.id, "USANDO .then().catch()");
           
           initialSupabaseClient
-            .from('users')
-            .select('*')
-            .eq('id', newSession.user.id)
-            .maybeSingle<UserProfileType>()
+            .rpc('get_user_profile', { user_uuid: newSession.user.id })
             .then(({ data: profileData, error: profileErrorObj }) => {
               if (profileErrorObj) {
-                console.error(`SupabaseProvider (onAuthStateChange: ${event} using .then): Errore DB nel fetch del profilo utente:`, profileErrorObj);
-              } else if (profileData) {
-                console.log(`SupabaseProvider (onAuthStateChange: ${event} using .then): Profilo utente CARICATO:`, profileData);
-                setUserProfile(profileData);
+                console.error(`SupabaseProvider (onAuthStateChange: ${event} using .then): Errore RPC nel fetch del profilo utente:`, profileErrorObj);
+              } else if (profileData && profileData.length > 0) {
+                console.log(`SupabaseProvider (onAuthStateChange: ${event} using .then): Profilo utente CARICATO:`, profileData[0]);
+                setUserProfile(profileData[0]);
               } else {
-                console.warn(`SupabaseProvider (onAuthStateChange: ${event} using .then): Profilo utente NON TROVATO (null restituito da maybeSingle).`);
+                console.warn(`SupabaseProvider (onAuthStateChange: ${event} using .then): Profilo utente NON TROVATO (RPC ritornò array vuoto).`);
                 setUserProfile(null); 
               }
             })
@@ -155,6 +167,7 @@ export const SupabaseProvider = ({
     )
 
     return () => {
+      isMounted = false;
       subscription?.unsubscribe()
     }
   }, [initialSupabaseClient])

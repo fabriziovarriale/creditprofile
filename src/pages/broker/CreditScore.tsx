@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { creditScoreReports, CreditScoreReport, requestCreditScore } from '../../store/clientsStore';
-import { mockClients } from '../../mocks/broker-data';
+import { getBrokerCreditScores, CreditScoreWithClient, createCreditScoreRequest, deleteCreditScoreReport } from '@/services/creditScoresService';
+import { getClientCreditProfile } from '@/services/creditProfilesService';
+import { getBrokerClients, Client } from '@/services/clientsService';
+import { useAuth } from '@/components/providers/SupabaseProvider';
 import {
   Table,
   TableBody,
@@ -12,47 +14,32 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { X, Eye, Trash2, Loader2 } from "lucide-react";
+import { X, Eye, Trash2, Loader2, AlertTriangle } from "lucide-react";
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 
-// Rimuovo il layout qui, questa pagina deve solo mostrare l'Outlet oppure essere la pagina figlia del layout
-// Utility per eliminare un report e salvarlo su localStorage
-function deleteCreditScoreReport(id: string, setReports: (r: CreditScoreReport[]) => void) {
-  let reports = creditScoreReports.filter(r => r.id !== id);
-  localStorage.setItem('creditScoreReports', JSON.stringify(reports));
-  setReports(reports);
-}
-
-// Utility per leggere i clienti persistiti
-function getPersistedClients() {
-  const saved = localStorage.getItem('mockClients');
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch {
-      return mockClients;
-    }
-  }
-  return mockClients;
-}
-
-// Utility per leggere i credit score persistiti
-function getPersistedCreditScoreReports() {
-  const saved = localStorage.getItem('creditScoreReports');
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch {
-      return [];
-    }
-  }
-  return [];
-}
+// Tipo per compatibilità con il componente esistente
+type CreditScoreReport = CreditScoreWithClient;
 
 export default function CreditScorePage() {
-  // Stato locale per forzare il re-render dopo update mock
-  const [reports, setReports] = useState<CreditScoreReport[]>(getPersistedCreditScoreReports());
+  const { profile: brokerUser, loading: authLoading, isAuthenticated, session, user, supabase: authenticatedSupabase } = useAuth();
+  const { toast } = useToast();
+  
+  // Debug: Stato di autenticazione dettagliato
+  console.log('🔍 CreditScore Page - Auth Debug:', {
+    authLoading,
+    isAuthenticated,
+    hasSession: !!session,
+    hasUser: !!user,
+    hasBrokerUser: !!brokerUser,
+    sessionUserId: session?.user?.id,
+    brokerUserId: brokerUser?.id,
+    userEmail: user?.email || session?.user?.email
+  });
+  
+  // Stato per i credit scores da Supabase
+  const [reports, setReports] = useState<CreditScoreReport[]>([]);
   const [slideOverOpen, setSlideOverOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<CreditScoreReport | null>(null);
   const [selectedClientName, setSelectedClientName] = useState<string>('');
@@ -60,29 +47,57 @@ export default function CreditScorePage() {
   const [reportToDelete, setReportToDelete] = useState<CreditScoreReport | null>(null);
   const [showRequestSlideOver, setShowRequestSlideOver] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string>('');
-  // Stato clienti persistenti
-  const [clients, setClients] = useState(getPersistedClients());
+  // Stato clienti dal database
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
   // Stato per modale conferma e loader
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isLoadingRequest, setIsLoadingRequest] = useState(false);
   const [pendingRequestClientId, setPendingRequestClientId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Aggiorna i clienti se cambia localStorage (es: nuovo cliente aggiunto)
+  // Carica i dati dal database
   useEffect(() => {
-    const onStorage = () => setClients(getPersistedClients());
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
+    async function loadData() {
+      if (brokerUser?.id) {
+        setLoading(true);
+        try {
+          const [brokerClients, brokerCreditScores] = await Promise.all([
+            getBrokerClients(brokerUser.id),
+            getBrokerCreditScores(brokerUser.id, authenticatedSupabase)
+          ]);
+          setClients(brokerClients);
+          setReports(brokerCreditScores);
+          console.log('📊 Credit Score page caricata - Reports:', brokerCreditScores.length);
+        } catch (error) {
+          console.error('Errore caricamento dati:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    }
 
-  // Aggiorna i report se cambia localStorage (es: nuovo credit score aggiunto)
+    if (!authLoading && brokerUser?.id) {
+      loadData();
+    }
+  }, [authLoading, brokerUser?.id]);
+
+  // Realtime: ascolta UPDATE su credit_scores per aggiornamenti auto-simulati
   useEffect(() => {
-    const onStorage = () => setReports(getPersistedCreditScoreReports());
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
+    if (!authenticatedSupabase || !brokerUser?.id) return;
+    const channel = authenticatedSupabase
+      .channel('credit-scores-broker')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'credit_scores', filter: `broker_id=eq.${brokerUser.id}` }, async (payload: any) => {
+        const updated = payload.new;
+        setReports(prev => prev.map(r => (Number(r.id) === Number(updated.id) ? { ...r, ...updated } : r)));
+      })
+      .subscribe();
+    return () => { authenticatedSupabase.removeChannel(channel); };
+  }, [authenticatedSupabase, brokerUser?.id]);
 
-  // Helper per trovare il cliente
-  const getClient = (clientId: string) => clients.find(c => c.id === clientId);
+
+  // Helper per trovare il cliente (ora dal report stesso)
+  const getClientName = (report: CreditScoreReport) => report.clientName || 'Cliente sconosciuto';
 
   // Stato per il menu a discesa
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -109,13 +124,15 @@ export default function CreditScorePage() {
     <div className="container mx-auto p-4 md:p-6 lg:p-8 max-w-7xl">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">Credit Score richiesti</h1>
-        <Button
-          variant="default"
-          size="sm"
-          onClick={() => setShowRequestSlideOver(true)}
-        >
-          Richiedi Credit Score
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setShowRequestSlideOver(true)}
+          >
+            Richiedi Credit Score
+          </Button>
+        </div>
       </div>
       {/* SlideOver richiesta credit score */}
       {showRequestSlideOver && (
@@ -138,7 +155,7 @@ export default function CreditScorePage() {
                     <SelectValue placeholder="Scegli un cliente" />
                   </SelectTrigger>
                   <SelectContent position="popper">
-                    {clients.map(client => {
+                    {clients.filter(client => client.id && client.id.trim() !== '').map(client => {
                       const numRequests = reports.filter(r => r.clientId === client.id).length;
                       return (
                         <SelectItem key={client.id} value={client.id}>
@@ -179,18 +196,55 @@ export default function CreditScorePage() {
             <p className="mb-6">Vuoi richiedere un nuovo credit score per il cliente selezionato?</p>
             <div className="flex gap-4">
               <Button variant="outline" onClick={() => { setShowConfirmModal(false); setPendingRequestClientId(null); }}>Annulla</Button>
-              <Button variant="default" onClick={() => {
+              <Button variant="default" onClick={async () => {
                 setIsLoadingRequest(true);
                 setShowConfirmModal(false);
-                setTimeout(() => {
-                  if (pendingRequestClientId) {
-                    requestCreditScore(pendingRequestClientId, setReports);
+                
+                try {
+                  if (pendingRequestClientId && brokerUser?.id) {
+                    // Trova il credit profile per questo cliente
+                    const client = clients.find(c => c.id === pendingRequestClientId);
+                    if (client) {
+                      // Trova il credit profile reale per questo cliente
+                      const creditProfile = await getClientCreditProfile(pendingRequestClientId, brokerUser.id);
+                      
+                      if (!creditProfile) {
+                        throw new Error('Credit profile non trovato per questo cliente');
+                      }
+                      
+                      await createCreditScoreRequest(
+                        pendingRequestClientId,
+                        brokerUser.id,
+                        creditProfile.id,
+                        authenticatedSupabase
+                      );
+                      
+                      // Ricarica i dati
+                      console.log('🔄 Ricaricamento dati dopo creazione...');
+                      const updatedReports = await getBrokerCreditScores(brokerUser.id, authenticatedSupabase);
+                      console.log('📊 Dati aggiornati ricevuti:', updatedReports.length, 'credit scores');
+                      setReports(updatedReports);
+                      console.log('✅ State aggiornato con', updatedReports.length, 'reports');
+                      
+                      toast({
+                        title: "Richiesta inviata",
+                        description: `Credit Score richiesto per ${client.first_name} ${client.last_name}`,
+                      });
+                    }
                   }
+                } catch (error: any) {
+                  console.error('Errore richiesta credit score:', error);
+                  toast({
+                    title: "Errore",
+                    description: error.message || "Errore nell'invio della richiesta",
+                    variant: "destructive",
+                  });
+                } finally {
                   setIsLoadingRequest(false);
                   setPendingRequestClientId(null);
                   setShowRequestSlideOver(false);
                   setSelectedClientId('');
-                }, 2000);
+                }
               }}>Conferma</Button>
             </div>
           </div>
@@ -234,23 +288,22 @@ export default function CreditScorePage() {
                   </TableRow>
                 )}
                 {reports.map((report) => {
-                  const client = getClient(report.clientId);
                   return (
                     <TableRow key={report.id}>
-                      <TableCell>{client ? `${client.firstName} ${client.lastName}` : report.clientId}</TableCell>
+                      <TableCell>{getClientName(report)}</TableCell>
                       <TableCell>
                         <Badge className={
                           report.status === 'completed' ? 'bg-green-100 text-green-800 border-green-200' :
                           report.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
-                          report.status === 'rejected' ? 'bg-red-100 text-red-800 border-red-200' :
+                          report.status === 'failed' ? 'bg-red-100 text-red-800 border-red-200' :
                           'bg-gray-100 text-gray-800 border-gray-200'
                         }>
                           {report.status === 'completed' ? 'Completato' :
                           report.status === 'pending' ? 'In attesa' :
-                          report.status === 'rejected' ? 'Rifiutato' : 'Sconosciuto'}
+                           report.status === 'failed' ? 'Fallito' : 'Sconosciuto'}
                         </Badge>
                       </TableCell>
-                      <TableCell>{report.status === 'completed' ? (typeof report.creditScore === 'number' && !isNaN(report.creditScore) ? report.creditScore : (!isNaN(Number(report.creditScore)) ? Number(report.creditScore) : '-')) : '-'}</TableCell>
+                      <TableCell className="font-medium">{report.credit_score || 'N/A'}</TableCell>
                       <TableCell>
                         <Badge className={report.protesti ? 'bg-red-100 text-red-800 border-red-200' : 'bg-gray-100 text-gray-800 border-gray-200'}>
                           {report.protesti ? 'Sì' : 'No'}
@@ -262,12 +315,12 @@ export default function CreditScorePage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={report.procedureConcorsuali ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-gray-100 text-gray-800 border-gray-200'}>
-                          {report.procedureConcorsuali ? 'Sì' : 'No'}
+                        <Badge className={report.procedure_concorsuali ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-gray-100 text-gray-800 border-gray-200'}>
+                          {report.procedure_concorsuali ? 'Sì' : 'No'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="flex gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => { setSelectedReport(report); setSelectedClientName(client ? `${client.firstName} ${client.lastName}` : report.clientId); setSlideOverOpen(true); }} className="flex items-center gap-1">
+                      <TableCell className="flex gap-2 flex-wrap">
+                        <Button variant="ghost" size="sm" onClick={() => { setSelectedReport(report); setSelectedClientName(getClientName(report)); setSlideOverOpen(true); }} className="flex items-center gap-1">
                           <Eye className="h-4 w-4" />
                           <span className="hidden sm:inline">Dettagli</span>
                         </Button>
@@ -296,11 +349,19 @@ export default function CreditScorePage() {
                 <div className="mb-6 text-sm text-muted-foreground">Sei sicuro di voler eliminare questa richiesta di credit score? L'operazione non è reversibile.</div>
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>Annulla</Button>
-                  <Button variant="destructive" onClick={() => { deleteCreditScoreReport(reportToDelete.id, setReports); setDeleteModalOpen(false); setReportToDelete(null); }}>Elimina</Button>
+                  <Button variant="destructive" onClick={async () => { 
+                    const ok = await deleteCreditScoreReport(reportToDelete.id, authenticatedSupabase, brokerUser?.id);
+                    if (ok) {
+                      setReports(prev => prev.filter(r => String(r.id) !== String(reportToDelete.id)));
+                    }
+                    setDeleteModalOpen(false); 
+                    setReportToDelete(null); 
+                  }}>Elimina</Button>
                 </div>
               </div>
             </div>
           )}
+          
           <CreditScoreDetailsSlideOver
             isOpen={slideOverOpen}
             onClose={() => setSlideOverOpen(false)}

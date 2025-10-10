@@ -6,7 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Client } from '@/mocks/broker-data';
+// Interfaccia Client definita localmente
+interface Client {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  registrationDate: string;
+  creditProfiles?: any[];
+}
 import { 
   User, 
   Mail, 
@@ -18,11 +27,13 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabaseClient';
+import { createClient, updateClient } from '@/services/clientsService';
+import { createCreditProfile } from '@/services/creditProfilesService';
+import { useAuth } from '@/components/providers/SupabaseProvider';
 
 interface ClientFormProps {
   onClose: () => void;
-  onSubmitSuccess?: (client: Client) => void;
+  onSubmitSuccess?: (client: Client, mode?: 'create' | 'edit') => void;
   client?: Client | null; // Per editing
   mode?: 'create' | 'edit';
 }
@@ -32,7 +43,6 @@ interface FormData {
   lastName: string;
   email: string;
   phone: string;
-  status: 'active' | 'pending' | 'suspended';
   notes?: string;
 }
 
@@ -42,12 +52,12 @@ const ClientForm: React.FC<ClientFormProps> = ({
   client = null,
   mode = 'create'
 }) => {
+  const { profile: brokerUser } = useAuth();
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
-    status: 'active',
     notes: ''
   });
 
@@ -62,7 +72,6 @@ const ClientForm: React.FC<ClientFormProps> = ({
         lastName: client.lastName,
         email: client.email,
         phone: client.phone,
-        status: client.status,
         notes: ''
       });
     }
@@ -113,34 +122,50 @@ const ClientForm: React.FC<ClientFormProps> = ({
       // Simula API call
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Crea oggetto cliente
-      const newClient: Client = {
-        id: client?.id || Math.random().toString(36).substr(2, 9),
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-        email: formData.email.trim().toLowerCase(),
-        phone: formData.phone.trim(),
-        status: formData.status,
-        registrationDate: client?.registrationDate || new Date().toISOString().split('T')[0],
-        creditProfiles: client?.creditProfiles || [],
-        documents: client?.documents || []
-      };
+      let savedClient: Client;
 
-      // Salva anche su Supabase
-      const { error } = await supabase.from('clients').insert([
-        {
-          id: newClient.id,
-          first_name: newClient.firstName,
-          last_name: newClient.lastName,
-          email: newClient.email,
-          phone: newClient.phone,
-          status: newClient.status,
-          registration_date: newClient.registrationDate
+      if (mode === 'edit' && client) {
+        // Modifica cliente esistente
+        console.log('✏️ Modifica cliente esistente:', client.id);
+        const updatedClient = await updateClient(client.id, {
+          first_name: formData.firstName.trim(),
+          last_name: formData.lastName.trim(),
+          phone: formData.phone.trim()
+        });
+        
+        if (!updatedClient) {
+          toast.error('Errore durante l\'aggiornamento del cliente');
+          return;
         }
-      ]);
-      if (error) {
-        toast.error('Cliente aggiunto solo in locale. Errore Supabase: ' + error.message);
+        
+        savedClient = updatedClient;
+        console.log('✅ Cliente aggiornato nel database Supabase');
+        
+      } else {
+        // Crea nuovo cliente
+        const result = await createClient({
+          first_name: formData.firstName.trim(),
+          last_name: formData.lastName.trim(),
+          email: formData.email.trim().toLowerCase(),
+          phone: formData.phone.trim()
+        }, brokerUser?.id);
+        
+        if (!result.client) {
+          // Controlla se l'errore è dovuto a email duplicata
+          if (result.error?.code === '23505' && result.error?.details?.includes('email')) {
+            toast.error('Un cliente con questa email esiste già');
+          } else {
+            toast.error('Errore durante il salvataggio del cliente nel database');
+          }
+          return;
+        }
+        
+        savedClient = result.client;
+        console.log('✅ Cliente e profilo credito creati via RPC');
       }
+      
+      // Usa il cliente salvato dal database
+      const newClient: Client = savedClient;
 
       const successMessage = mode === 'edit' 
         ? 'Cliente aggiornato con successo!' 
@@ -148,7 +173,7 @@ const ClientForm: React.FC<ClientFormProps> = ({
       
       toast.success(successMessage);
       
-      onSubmitSuccess?.(newClient);
+      onSubmitSuccess?.(newClient, mode);
       onClose();
 
     } catch (error) {
@@ -237,11 +262,17 @@ const ClientForm: React.FC<ClientFormProps> = ({
                 value={formData.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
                 className={errors.email ? 'border-red-500' : ''}
+                disabled={mode === 'edit'}
               />
               {errors.email && (
                 <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
                   <AlertCircle className="h-3 w-3" />
                   {errors.email}
+                </p>
+              )}
+              {mode === 'edit' && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  L'email non può essere modificata
                 </p>
               )}
             </div>
@@ -268,62 +299,28 @@ const ClientForm: React.FC<ClientFormProps> = ({
           </CardContent>
         </Card>
 
-        {/* Stato Cliente */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Stato Cliente
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="status">Stato *</Label>
-              <Select 
-                value={formData.status} 
-                onValueChange={(value: 'active' | 'pending' | 'suspended') => 
-                  handleInputChange('status', value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleziona stato" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                      Attivo
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="pending">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                      In attesa
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="suspended">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                      Sospeso
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {client && mode === 'edit' && (
-              <div className="text-sm text-muted-foreground">
-                <div className="flex items-center gap-2 mb-1">
+        {/* Informazioni aggiuntive per clienti esistenti */}
+        {client && mode === 'edit' && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Informazioni Cliente
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm text-muted-foreground space-y-2">
+                <div className="flex items-center gap-2">
                   <Calendar className="h-3 w-3" />
                   Data registrazione: {new Date(client.registrationDate).toLocaleDateString('it-IT')}
                 </div>
                 <div>
-                  Profili credito: {client.creditProfiles.length}
+                  Profili credito: {client.creditProfiles?.length || 0}
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Note opzionali */}
         <Card>

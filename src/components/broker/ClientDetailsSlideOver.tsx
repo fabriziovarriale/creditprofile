@@ -2,7 +2,18 @@ import React from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Client } from '@/mocks/broker-data';
+// Definizione locale
+interface Client {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  status: 'active' | 'pending' | 'suspended';
+  registrationDate: string;
+  creditProfiles?: any[];
+  documents?: any[];
+}
 import { Separator } from "@/components/ui/separator";
 import ClientForm from './ClientForm';
 import DocumentUploadForm from './DocumentUploadForm';

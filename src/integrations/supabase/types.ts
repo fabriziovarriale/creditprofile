@@ -9,7 +9,105 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      users: {
+        Row: {
+          id: string
+          email: string
+          first_name: string | null
+          last_name: string | null
+          role: 'client' | 'broker' | 'administrator'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          email: string
+          first_name?: string | null
+          last_name?: string | null
+          role: 'client' | 'broker' | 'administrator'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          first_name?: string | null
+          last_name?: string | null
+          role?: 'client' | 'broker' | 'administrator'
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      credit_profiles: {
+        Row: {
+          id: number
+          client_id: string
+          broker_id: string | null
+          administrator_id: string | null
+          status: string
+          document_summary: Json | null
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: number
+          client_id: string
+          broker_id?: string | null
+          administrator_id?: string | null
+          status?: string
+          document_summary?: Json | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: number
+          client_id?: string
+          broker_id?: string | null
+          administrator_id?: string | null
+          status?: string
+          document_summary?: Json | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+      }
+      documents: {
+        Row: {
+          id: number
+          credit_profile_id: number
+          uploaded_by_user_id: string
+          document_type: string
+          file_path: string | null
+          file_name: string | null
+          file_size_kb: number | null
+          status: string | null
+          uploaded_at: string
+        }
+        Insert: {
+          id?: number
+          credit_profile_id: number
+          uploaded_by_user_id: string
+          document_type: string
+          file_path?: string | null
+          file_name?: string | null
+          file_size_kb?: number | null
+          status?: string | null
+          uploaded_at?: string
+        }
+        Update: {
+          id?: number
+          credit_profile_id?: number
+          uploaded_by_user_id?: string
+          document_type?: string
+          file_path?: string | null
+          file_name?: string | null
+          file_size_kb?: number | null
+          status?: string | null
+          uploaded_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

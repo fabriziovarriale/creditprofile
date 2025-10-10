@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/providers/SupabaseProvider';
 import { Button } from '@/components/ui/button';
@@ -15,53 +15,46 @@ import {
   Loader2,
   XCircle
 } from "lucide-react";
+import { getBrokerDocuments, getDocumentsByProfile, DocumentWithClient } from '@/services/documentsService';
+import { getBrokerClients } from '@/services/clientsService';
+import { getOrCreateCreditProfile } from '@/services/creditProfilesService';
 
 // Import dei componenti e dati
-import { mockDocuments, getDocumentStats, getDocumentsByClient, Document } from '@/mocks/documents-data';
 import DocumentsTable from '@/components/broker/DocumentsTable';
 import DocumentDetailsSlideOver from '@/components/broker/DocumentDetailsSlideOver';
 
-// Utility per leggere i documenti persistiti
-function getPersistedDocuments(): Document[] {
-  const saved = localStorage.getItem('mockDocuments');
-  if (saved) {
-    try {
-      return JSON.parse(saved) as Document[];
-    } catch {
-      return mockDocuments;
-    }
-  }
-  return mockDocuments;
-}
+// Utilizziamo il tipo DocumentWithClient dal servizio
 
-function getDocumentsByClientFromList(docList: Document[]): { clientName: string; clientEmail: string; creditProfileStatus: string; documents: Document[] }[] {
-  const groupedByClient = docList.reduce((acc, doc) => {
+// Funzione per raggruppare documenti per cliente
+function groupDocumentsByClient(documents: DocumentWithClient[]): { clientName: string; clientEmail: string; creditProfileStatus: string; documents: DocumentWithClient[] }[] {
+  const groupedByClient = documents.reduce((acc, doc) => {
     const clientKey = `${doc.clientName}|${doc.clientEmail}`;
     if (!acc[clientKey]) {
       acc[clientKey] = {
         clientName: doc.clientName,
         clientEmail: doc.clientEmail,
         creditProfileStatus: doc.creditProfileStatus,
-        documents: [] as Document[]
+        documents: [] as DocumentWithClient[]
       };
     }
     acc[clientKey].documents.push(doc);
     return acc;
-  }, {} as Record<string, { clientName: string; clientEmail: string; creditProfileStatus: string; documents: Document[] }>);
+  }, {} as Record<string, { clientName: string; clientEmail: string; creditProfileStatus: string; documents: DocumentWithClient[] }>);
   return Object.values(groupedByClient);
 }
 
-function getDocumentStatsFromList(docList) {
-  const totalDocuments = docList.length;
-  const documentsByStatus = docList.reduce((acc, doc) => {
+// Funzione per calcolare statistiche
+function calculateDocumentStats(documents: DocumentWithClient[]) {
+  const totalDocuments = documents.length;
+  const documentsByStatus = documents.reduce((acc, doc) => {
     acc[doc.status] = (acc[doc.status] || 0) + 1;
     return acc;
-  }, {});
-  const documentsByType = docList.reduce((acc, doc) => {
-    acc[doc.documentType] = (acc[doc.documentType] || 0) + 1;
+  }, {} as Record<string, number>);
+  const documentsByType = documents.reduce((acc, doc) => {
+    acc[doc.document_type] = (acc[doc.document_type] || 0) + 1;
     return acc;
-  }, {});
-  const clientsWithDocuments = new Set(docList.map(doc => doc.clientEmail)).size;
+  }, {} as Record<string, number>);
+  const clientsWithDocuments = new Set(documents.map(doc => doc.clientEmail)).size;
   return {
     totalDocuments,
     documentsByStatus,
@@ -76,12 +69,12 @@ const DocumentsPage = () => {
   
   // Stati per il slide over
   const [isSlideOverOpen, setIsSlideOverOpen] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<DocumentWithClient | null>(null);
   const [selectedClientData, setSelectedClientData] = useState<{
     clientName: string;
     clientEmail: string;
     creditProfileStatus: string;
-    documents: Document[];
+    documents: DocumentWithClient[];
   } | null>(null);
   const [slideOverMode, setSlideOverMode] = useState<'view' | 'upload'>('view');
 
@@ -89,19 +82,17 @@ const DocumentsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Stato documenti per aggiornamento live
-  const [clientDocuments, setClientDocuments] = useState<{ clientName: string; clientEmail: string; creditProfileStatus: string; documents: Document[] }[]>(getDocumentsByClientFromList(getPersistedDocuments()));
-  const [stats, setStats] = useState(getDocumentStatsFromList(getPersistedDocuments()));
-
-  // Calcola le statistiche
-  // const stats = getDocumentStats(); // This line is no longer needed as stats is now state
+  const [clientDocuments, setClientDocuments] = useState<{ clientName: string; clientEmail: string; creditProfileStatus: string; documents: DocumentWithClient[] }[]>([]);
+  const [stats, setStats] = useState(calculateDocumentStats([]));
+  const [loading, setLoading] = useState(true);
 
   // Filtra i documenti per cliente basato sulla ricerca
   const filteredClientDocuments = clientDocuments.filter(client => 
     client.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     client.clientEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
     client.documents.some(doc => 
-      doc.documentType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.fileName.toLowerCase().includes(searchQuery.toLowerCase())
+      doc.document_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.file_name.toLowerCase().includes(searchQuery.toLowerCase())
     )
   );
 
@@ -113,7 +104,7 @@ const DocumentsPage = () => {
     clientName: string;
     clientEmail: string;
     creditProfileStatus: string;
-    documents: Document[];
+    documents: DocumentWithClient[];
   }) => {
     setSelectedDocument(null);
     setSelectedClientData(clientData);
@@ -136,10 +127,58 @@ const DocumentsPage = () => {
   };
 
   const handleUploadSuccess = () => {
-    const docs = getPersistedDocuments();
-    setClientDocuments(getDocumentsByClientFromList(docs));
-    setStats(getDocumentStatsFromList(docs));
+    // Ricarica i documenti dopo un upload riuscito
+    loadDocuments();
   };
+
+  // Funzione per caricare i documenti dal database
+  const loadDocuments = async () => {
+    if (!brokerUser?.id) {
+      console.log('⚠️ Nessun broker user ID disponibile');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      console.log('🔍 Caricamento documenti per broker:', brokerUser.id);
+      console.log('👤 Broker profile completo:', {
+        id: brokerUser.id,
+        email: brokerUser.email,
+        role: brokerUser.role,
+        first_name: brokerUser.first_name,
+        last_name: brokerUser.last_name
+      });
+      
+      // Carica documenti del broker da Supabase
+      const documents = await getBrokerDocuments(brokerUser.id);
+      console.log('📄 Documenti caricati:', documents.length);
+      console.log('📄 Dettagli documenti:', documents);
+      
+      // Raggruppa per cliente
+      const grouped = groupDocumentsByClient(documents);
+      console.log('👥 Documenti raggruppati per cliente:', grouped);
+      setClientDocuments(grouped);
+      
+      // Calcola statistiche
+      const newStats = calculateDocumentStats(documents);
+      console.log('📊 Statistiche calcolate:', newStats);
+      setStats(newStats);
+      
+    } catch (error) {
+      console.error('❌ Errore caricamento documenti:', error);
+      setClientDocuments([]);
+      setStats(calculateDocumentStats([]));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Carica documenti quando il broker è disponibile
+  React.useEffect(() => {
+    if (!authLoading && brokerUser?.id) {
+      loadDocuments();
+    }
+  }, [authLoading, brokerUser?.id]);
 
   React.useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -161,6 +200,15 @@ const DocumentsPage = () => {
       <div className="p-6 flex-1 flex items-center justify-center">
         <p>Accesso negato. Effettua il login come broker.</p>
         <Button onClick={() => navigate('/login')} className="ml-4">Login</Button>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 flex-1 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Caricamento documenti...</p>
       </div>
     );
   }
@@ -260,10 +308,31 @@ const DocumentsPage = () => {
       </div>
 
       {/* Tabella documenti */}
+      {filteredClientDocuments.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Nessun documento trovato</h3>
+            <p className="text-muted-foreground text-center mb-4">
+              {searchQuery 
+                ? `Nessun documento corrisponde alla ricerca "${searchQuery}"`
+                : 'Non ci sono documenti caricati per i tuoi clienti.'
+              }
+            </p>
+            {!searchQuery && (
+              <Button onClick={handleUploadDocument}>
+                <Upload className="w-4 h-4 mr-2" />
+                Carica Primo Documento
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
       <DocumentsTable 
         clientDocuments={filteredClientDocuments}
         onViewClient={handleViewClient}
       />
+      )}
 
       {/* Slide Over per i dettagli */}
       <DocumentDetailsSlideOver

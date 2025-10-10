@@ -34,6 +34,8 @@ npm i
 
 # Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
+
+# Step 5: Open your browser and navigate to http://localhost:3000
 ```
 
 **Edit a file directly in GitHub**

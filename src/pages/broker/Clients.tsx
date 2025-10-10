@@ -16,9 +16,33 @@ import {
 } from "lucide-react";
 
 // Import dei componenti e dati
-import { mockClients, Client, getAggregatedStats } from '@/mocks/broker-data';
+// Interfaccia Client definita localmente
+interface Client {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  status: 'active' | 'pending' | 'suspended';
+  registrationDate: string;
+  creditProfiles?: any[];
+  documents?: any[];
+}
+import { getBrokerClients, deleteClient } from '@/services/clientsService';
 import ClientsTable from '@/components/broker/ClientsTable';
 import ClientDetailsSlideOver from '@/components/broker/ClientDetailsSlideOver';
+import { supabase } from '@/lib/supabaseClient';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const ClientsPage = () => {
   const { profile: brokerUser, loading: authLoading, isAuthenticated } = useAuth();
@@ -32,22 +56,24 @@ const ClientsPage = () => {
   // Stati per ricerca e filtraggio
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Dati clienti mock persistenti in localStorage
-  function getInitialClients() {
-    const saved = localStorage.getItem('mockClients');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return mockClients;
-      }
-    }
-    return mockClients;
-  }
-  const [clients, setClients] = useState<Client[]>(getInitialClients());
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Calcola le statistiche
-  const stats = getAggregatedStats();
+  // Stati per dialog eliminazione
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Calcola le statistiche (placeholder per ora)
+  const stats = {
+    totalClients: clients.length,
+    activeClients: clients.filter(c => c.status === 'active').length,
+    pendingClients: clients.filter(c => c.status === 'pending').length,
+    totalDocuments: 0,
+    pendingDocuments: 0,
+    completedProfiles: 0,
+    pendingProfiles: 0
+  };
 
   // Filtra i clienti basato sulla ricerca
   const filteredClients = clients.filter(client => 
@@ -56,6 +82,7 @@ const ClientsPage = () => {
     client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     client.phone.includes(searchQuery)
   );
+  
 
   // Gestori per il slide over
   const handleViewClient = (client: Client) => {
@@ -77,9 +104,48 @@ const ClientsPage = () => {
   };
 
   const handleDeleteClient = (client: Client) => {
-    // Qui implementeresti la logica di eliminazione
-    console.log('Elimina cliente:', client);
-    // Potresti mostrare una conferma prima di eliminare
+    console.log('🗑️ handleDeleteClient chiamato per:', client);
+    setClientToDelete(client);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteClient = async () => {
+    console.log('🔴 confirmDeleteClient chiamato, clientToDelete:', clientToDelete);
+    if (!clientToDelete) {
+      console.warn('⚠️ Nessun cliente da eliminare');
+      return;
+    }
+    
+    if (!brokerUser?.id) {
+      console.error('❌ broker_id mancante per deleteClient');
+      toast.error('Errore: broker non autenticato');
+      return;
+    }
+    
+    setIsDeleting(true);
+    console.log('🚀 Inizio eliminazione cliente ID:', clientToDelete.id);
+    
+    try {
+      const success = await deleteClient(clientToDelete.id, supabase, brokerUser.id);
+      console.log('✅ Risultato deleteClient:', success);
+      
+      if (success) {
+        // Rimuovi il cliente dalla lista locale
+        setClients(prev => prev.filter(c => c.id !== clientToDelete.id));
+        toast.success(`Cliente ${clientToDelete.firstName} ${clientToDelete.lastName} eliminato con successo`);
+        setDeleteDialogOpen(false);
+        setClientToDelete(null);
+      } else {
+        console.error('❌ deleteClient ha ritornato false');
+        toast.error('Errore durante l\'eliminazione del cliente. Riprova.');
+      }
+    } catch (error) {
+      console.error('💥 Errore eliminazione cliente:', error);
+      toast.error('Errore durante l\'eliminazione del cliente');
+    } finally {
+      setIsDeleting(false);
+      console.log('🏁 Fine processo eliminazione');
+    }
   };
 
   const handleCloseSlideOver = () => {
@@ -88,62 +154,47 @@ const ClientsPage = () => {
     setSlideOverMode('view');
   };
 
-  const handleSubmitSuccess = (client: Client) => {
-    setClients(prev => {
-      const updated = [...prev, client];
-      localStorage.setItem('mockClients', JSON.stringify(updated));
-      return updated;
-    });
-    // Aggiorna anche i mock per persistenza temporanea in FE
-    mockClients.push(client);
-    console.log('Cliente salvato:', client);
+  const handleSubmitSuccess = (client: Client, mode: 'create' | 'edit' = 'create') => {
+    if (mode === 'edit') {
+      // Aggiorna il cliente esistente nella lista
+      setClients(prev => prev.map(c => c.id === client.id ? client : c));
+      console.log('Cliente aggiornato:', client);
+    } else {
+      // Aggiungi nuovo cliente alla lista
+      setClients(prev => [...prev, client]);
+      console.log('Cliente creato:', client);
+    }
   };
 
-  // Funzione per ripristinare i dati mock di default
-  function restoreMockData() {
-    // Dati mock di default (copiare qui i dati originali se necessario)
-    const defaultClients = [
-      {
-        id: '1',
-        firstName: 'Marco',
-        lastName: 'Rossi',
-        email: 'marco.rossi@email.com',
-        phone: '+39 333 1234567',
-        registrationDate: '2024-01-15',
-        status: 'active',
-        creditProfiles: [],
-        documents: []
-      },
-      {
-        id: '2',
-        firstName: 'Anna',
-        lastName: 'Verdi',
-        email: 'anna.verdi@email.com',
-        phone: '+39 333 2345678',
-        registrationDate: '2024-02-20',
-        status: 'active',
-        creditProfiles: [],
-        documents: []
-      }
-      // ... altri clienti se vuoi
-    ];
-    const defaultDocuments = [];
-    const defaultCreditScoreReports = [];
-    const defaultCreditProfilesEnriched = [];
-    localStorage.setItem('mockClients', JSON.stringify(defaultClients));
-    localStorage.setItem('mockDocuments', JSON.stringify(defaultDocuments));
-    localStorage.setItem('creditScoreReports', JSON.stringify(defaultCreditScoreReports));
-    localStorage.setItem('creditProfilesEnriched', JSON.stringify(defaultCreditProfilesEnriched));
+  // Funzione per ricaricare i dati dal database
+  function reloadData() {
     window.location.reload();
   }
 
+  // Carica i clienti dal database
   React.useEffect(() => {
+    async function loadClients() {
+      if (brokerUser?.id) {
+        setLoading(true);
+        try {
+          const brokerClients = await getBrokerClients(brokerUser.id);
+          setClients(brokerClients);
+        } catch (error) {
+          console.error('Errore caricamento clienti:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    }
+
     if (!authLoading && !isAuthenticated) {
       navigate('/login');
+    } else if (brokerUser?.id) {
+      loadClients();
     }
-  }, [authLoading, isAuthenticated, navigate]);
+  }, [authLoading, isAuthenticated, navigate, brokerUser?.id]);
 
-  if (authLoading) {
+  if (authLoading || loading) {
     return (
       <div className="p-6 flex-1 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -218,6 +269,42 @@ const ClientsPage = () => {
           </Button>
         ) : null}
       />
+
+      {/* Dialog conferma eliminazione */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conferma eliminazione</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sei sicuro di voler eliminare il cliente{' '}
+              <strong>
+                {clientToDelete?.firstName} {clientToDelete?.lastName}
+              </strong>
+              ? Questa azione eliminerà anche tutti i profili credito, documenti e credit score associati.
+              <br />
+              <br />
+              <span className="text-red-600 font-semibold">Questa azione non può essere annullata.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteClient}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Eliminazione...
+                </>
+              ) : (
+                'Elimina'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

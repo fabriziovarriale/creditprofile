@@ -41,6 +41,7 @@ import ClientReports from './pages/client/Reports';
 // Importa il layout specifico del broker
 import BrokerLayout from './layouts/BrokerLayout'; 
 import { CreditProfilesProvider } from './pages/broker/CreditProfiles';
+import { AIContextProvider } from './components/providers/AIContextProvider';
 import Index from './pages/Index';
 
 
@@ -59,7 +60,7 @@ const router = createBrowserRouter(
       {/* Broker Routes - Protette */}
       <Route 
         path="broker"
-        element={<PrivateRoute><CreditProfilesProvider><BrokerLayout /></CreditProfilesProvider></PrivateRoute>}
+        element={<PrivateRoute><CreditProfilesProvider><AIContextProvider><BrokerLayout /></AIContextProvider></CreditProfilesProvider></PrivateRoute>}
       >
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<BrokerDashboard />} />

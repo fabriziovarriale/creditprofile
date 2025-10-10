@@ -237,7 +237,7 @@ const ClientDocuments = () => {
       docs = docs.filter((d: any) => d.id !== docToDelete.id);
       localStorage.setItem('mockDocuments', JSON.stringify(docs));
       setDocuments(prev => prev.filter(d => d.id !== docToDelete.id));
-      toast.success(`Documento "${docToDelete.file_name || docToDelete.document_type}" eliminato (mock).`);
+      toast.success(`Documento "${docToDelete.name || docToDelete.file_path}" eliminato.`);
     } catch (error: any) {
       toast.error(`Errore durante l'eliminazione: ${error.message}`);
       console.error("Errore eliminazione documento:", error);

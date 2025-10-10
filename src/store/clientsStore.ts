@@ -1,6 +1,17 @@
-import type { Client } from '../mocks/broker-data';
 import type { Document, Report } from '../types';
-import { mockClients, saveEnrichedCreditProfiles, loadEnrichedCreditProfiles } from '../mocks/broker-data';
+
+// Interfaccia Client definita localmente
+interface Client {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  status: 'active' | 'pending' | 'suspended';
+  registrationDate: string;
+  creditProfiles?: any[];
+  documents?: any[];
+}
 
 interface ClientsStore {
   clients: Client[];
@@ -10,11 +21,11 @@ interface ClientsStore {
   actions: {
     addClient: (client: Client) => void;
     uploadDocument: (doc: Document) => void;
-    generateReport: (data: any) => void; // ReportData non esiste, uso any o definisco un tipo se serve
+    generateReport: (data: any) => void;
   };
 }
 
-// --- CREDIT SCORE MOCK ---
+// --- CREDIT SCORE REPORTS ---
 export type CreditScoreReport = {
   id: string;
   clientId: string;
@@ -70,103 +81,36 @@ export function requestCreditScore(clientId: string, onUpdate: (reports: CreditS
   saveCreditScoreReports(creditScoreReports);
   onUpdate(creditScoreReports);
 
-  // --- AGGIUNTA: rimuovi anche il vecchio credit profile mock arricchito per questo clientId ---
-  const client = mockClients.find(c => c.id === clientId);
-  if (client) {
-    // Rimuovi tutti i credit profile associati a questo clientId
-    client.creditProfiles = client.creditProfiles.filter(p => p.clientId !== clientId);
-    // Genera un nuovo credit profile mock
-    const profileId = `cp-${id}`;
+  // Simula completamento dopo 3 secondi
+  setTimeout(() => {
     const fakeScore = Math.floor(Math.random() * 400) + 400;
     const fakeRating = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'][Math.floor(Math.random() * 6)];
     const fakeRiskScore = ['VERDE', 'GIALLO', 'ROSSO'][Math.floor(Math.random() * 3)];
     const fakeRiskDesc = fakeRiskScore === 'VERDE' ? 'Rischio basso' : fakeRiskScore === 'GIALLO' ? 'Rischio medio' : 'Rischio alto';
     const fakeLimit = Math.floor(Math.random() * 20000) + 5000;
-    const nowDate = new Date();
-    const newProfile = {
-      id: profileId,
-      clientId: clientId,
-      status: 'approved' as const,
-      score: fakeScore,
-      createdAt: nowDate.toISOString(),
-      updatedAt: nowDate.toISOString(),
-      rating: fakeRating,
-      riskScore: fakeRiskScore,
-      riskScoreDescription: fakeRiskDesc,
-      operationalCreditLimit: fakeLimit,
-      history: {
-        riskScore: [fakeRiskScore],
-        publicRating: [fakeRating],
-        operationalCreditLimit: [fakeLimit]
-      },
-      positions: [
-        { type: 'economico', trend: 'positivo' },
-        { type: 'finanziario', trend: 'stabile' }
-      ],
-      profiles: [
-        { indice: 'liquidità', valore: 1.2 },
-        { indice: 'indebitamento', valore: 0.8 }
-      ],
-      details: '',
-      factors: '',
-      segnalazioni: '',
-      documents: '',
-      brokerNotes: '',
-      partnerBanks: ['Banca Intesa', 'Unicredit'],
-      reports: []
-    };
-    client.creditProfiles.push(newProfile);
-    // Aggiorna anche su localStorage
-    let allEnriched = loadEnrichedCreditProfiles().filter(p => p.clientId !== clientId);
-    allEnriched.push(newProfile);
-    saveEnrichedCreditProfiles(allEnriched);
-    (newReport as any)._fakeScore = fakeScore;
-  }
-  // --- FINE AGGIUNTA ---
-
-  // Simula delay API
-  setTimeout(() => {
-    // Simula che circa il 30% restino in pending
-    if (Math.random() < 0.3) {
-      // Non aggiorno lo status, resta 'pending'
-      return;
-    }
-    const completedReport: CreditScoreReport = {
+    
+    const updatedReport: CreditScoreReport = {
       ...newReport,
       status: 'completed',
       completedAt: new Date().toISOString(),
-      creditScore: (newReport as any)._fakeScore !== undefined ? (newReport as any)._fakeScore : Math.floor(Math.random() * 400) + 400, // 400-800
-      protesti: Math.random() < 0.2,
-      pregiudizievoli: Math.random() < 0.15,
-      procedureConcorsuali: Math.random() < 0.1,
-      negativeReports: [],
-      reportPdfUrl: undefined,
+      creditScore: fakeScore,
+      protesti: Math.random() > 0.8,
+      pregiudizievoli: Math.random() > 0.9,
+      procedureConcorsuali: Math.random() > 0.95,
+      negativeReports: Math.random() > 0.7 ? [
+        {
+          type: 'protesti',
+          date: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString(),
+          amount: Math.floor(Math.random() * 5000) + 1000
+        }
+      ] : [],
+      reportPdfUrl: `/reports/${id}.pdf`
     };
-    if (completedReport.protesti) {
-      completedReport.negativeReports?.push({
-        type: 'protesti',
-        date: '2023-01-15',
-        amount: 1200,
-      });
-    }
-    if (completedReport.pregiudizievoli) {
-      completedReport.negativeReports?.push({
-        type: 'pregiudizievoli',
-        date: '2023-02-10',
-        amount: 2500,
-      });
-    }
-    if (completedReport.procedureConcorsuali) {
-      completedReport.negativeReports?.push({
-        type: 'procedure_concorsuali',
-        date: '2022-11-05',
-        amount: 5000,
-      });
-    }
-    creditScoreReports = creditScoreReports.map((r) => (r.id === id ? completedReport : r));
+    
+    creditScoreReports = creditScoreReports.map(r => r.id === id ? updatedReport : r);
     saveCreditScoreReports(creditScoreReports);
     onUpdate(creditScoreReports);
-  }, 2000); // 2 secondi di delay
+  }, 3000);
 }
 
 // Utility per cancellare tutti i credit score dal localStorage

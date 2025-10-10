@@ -6,7 +6,11 @@ import path from "path";
 export default defineConfig(({ mode }) => ({
   server: {
     host: true,
-    port: 5173,
+    port: 5175,
+    fs: {
+      // Permetti l'accesso ai file di node_modules per PDF.js worker
+      allow: ['..'],
+    },
   },
   plugins: [
     react(),
@@ -17,4 +21,11 @@ export default defineConfig(({ mode }) => ({
     },
   },
   publicDir: 'public',
+  optimizeDeps: {
+    include: ['pdfjs-dist'],
+  },
+  define: {
+    global: 'globalThis',
+  },
+  assetsInclude: ['**/*.worker.mjs'], // Includi i worker come asset
 }));
