@@ -27,3 +27,17 @@ dist-ssr
 
 # Supabase migrations
 supabase/migrations/
+
+# Test files (contengono API keys)
+test-*.js
+check-*.js
+debug-*.js
+clear-*.js
+find-*.js
+search-*.js
+verify-*.js
+manage-*.js
+*.sql
+!supabase/**/*.sql
+browser-cleanup-instructions.js
+cleanup-browser-data.html
