@@ -122,9 +122,9 @@ export async function getBrokerDocuments(brokerId: string): Promise<DocumentWith
       file_size_kb: doc.file_size_kb,
       status: doc.status,
       uploaded_at: doc.uploaded_at,
-      clientName: doc.client_name,
-      clientEmail: doc.client_email,
-      creditProfileStatus: doc.credit_profile_status
+      clientName: `${doc.client_first_name || ''} ${doc.client_last_name || ''}`.trim(),
+      clientEmail: doc.client_email || '',
+      creditProfileStatus: doc.credit_profile_status || ''
     }));
 
     console.log(`✅ Recuperati ${documentsWithClient.length} documenti via RPC`);
