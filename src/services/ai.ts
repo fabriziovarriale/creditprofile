@@ -40,17 +40,21 @@ class AIService {
   private baseUrl: string;
 
   constructor() {
-    this.apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    this.apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
     
     // Determina il provider basato sul tipo di API key
-    if (this.apiKey.startsWith('gsk_')) {
+    if (this.apiKey && this.apiKey.startsWith('gsk_')) {
       // Groq (gratuito)
       this.baseUrl = 'https://api.groq.com/openai/v1';
       console.log('🚀 Usando Groq (gratuito)');
     } else {
       // Fallback - richiede chiave Groq
       this.baseUrl = 'https://api.groq.com/openai/v1';
-      console.log('⚠️ Chiave non riconosciuta, richiede chiave Groq (gsk_)');
+      if (!this.apiKey) {
+        console.warn('⚠️ VITE_OPENAI_API_KEY non configurata. L\'AI non funzionerà.');
+      } else {
+        console.log('⚠️ Chiave non riconosciuta, richiede chiave Groq (gsk_)');
+      }
     }
     
     // Verifica la configurazione all'avvio
