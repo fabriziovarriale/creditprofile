@@ -88,11 +88,11 @@ const DocumentsPage = () => {
 
   // Filtra i documenti per cliente basato sulla ricerca
   const filteredClientDocuments = clientDocuments.filter(client => 
-    client.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    client.clientEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (client.clientName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (client.clientEmail || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     client.documents.some(doc => 
-      doc.document_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.file_name.toLowerCase().includes(searchQuery.toLowerCase())
+      (doc.document_type || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (doc.file_name || '').toLowerCase().includes(searchQuery.toLowerCase())
     )
   );
 
