@@ -264,25 +264,22 @@ const BrokerCharts: React.FC<BrokerChartsProps> = ({ stats, documents = [], cred
   const monthlyAggregated = getMonthlyAggregatedData(creditScores);
   console.log('📊 Dati aggregati per grafico:', monthlyAggregated);
 
-  // Custom tooltip moderno
-  const ModernTooltip = ({ active, payload, label }: any) => {
+  // Custom tooltip moderno per singola barra
+  const ModernTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
+      const data = payload[0];
       return (
-        <div className="bg-white/95 backdrop-blur-sm p-4 border border-gray-200 rounded-xl shadow-xl">
-          <p className="font-semibold text-gray-900 mb-3">{label}</p>
-          <div className="space-y-2">
-            {payload.map((entry: any, index: number) => (
-              <div key={index} className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: entry.color || entry.fill }}
-                  />
-                  <p className="text-sm text-gray-700">{entry.name}</p>
-                </div>
-                <p className="text-sm font-semibold text-gray-900">{entry.value}</p>
-              </div>
-            ))}
+        <div className="bg-white/95 backdrop-blur-sm p-3 border border-gray-200 rounded-xl shadow-xl">
+          <div className="flex items-center gap-3">
+            <div 
+              className="w-3 h-3 rounded-full shadow-sm" 
+              style={{ backgroundColor: data.color || data.fill }}
+            />
+            <div>
+              <p className="text-xs text-gray-500">{data.payload.mese}</p>
+              <p className="font-semibold text-gray-900">{data.name}</p>
+              <p className="text-lg font-bold text-primary">{data.value}</p>
+            </div>
           </div>
         </div>
       );
@@ -481,7 +478,9 @@ const BrokerCharts: React.FC<BrokerChartsProps> = ({ stats, documents = [], cred
                 />
                 <Tooltip 
                   content={<ModernTooltip />}
-                  cursor={{ fill: 'rgba(99, 102, 241, 0.1)' }}
+                  cursor={false}
+                  shared={false}
+                  isAnimationActive={false}
                 />
                 <Legend 
                   content={<CreditScoreLegend />}
