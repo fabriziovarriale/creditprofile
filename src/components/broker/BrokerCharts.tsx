@@ -267,18 +267,22 @@ const BrokerCharts: React.FC<BrokerChartsProps> = ({ stats, documents = [], cred
   // Custom tooltip moderno
   const ModernTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
-      const data = payload[0];
       return (
         <div className="bg-white/95 backdrop-blur-sm p-4 border border-gray-200 rounded-xl shadow-xl">
-          <p className="font-semibold text-gray-900 mb-2">{data.name || label}</p>
-          <div className="flex items-center gap-2">
-            <div 
-              className="w-3 h-3 rounded-full" 
-              style={{ backgroundColor: data.color || data.fill }}
-            />
-            <p className="text-sm font-medium text-gray-700">
-              {data.value} {data.payload?.total && `(${Math.round((data.value / data.payload.total) * 100)}%)`}
-            </p>
+          <p className="font-semibold text-gray-900 mb-3">{label}</p>
+          <div className="space-y-2">
+            {payload.map((entry: any, index: number) => (
+              <div key={index} className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: entry.color || entry.fill }}
+                  />
+                  <p className="text-sm text-gray-700">{entry.name}</p>
+                </div>
+                <p className="text-sm font-semibold text-gray-900">{entry.value}</p>
+              </div>
+            ))}
           </div>
         </div>
       );
@@ -489,6 +493,7 @@ const BrokerCharts: React.FC<BrokerChartsProps> = ({ stats, documents = [], cred
                   radius={[4, 4, 0, 0]}
                   stroke="rgba(255,255,255,0.8)"
                   strokeWidth={1}
+                  activeBar={{ stroke: MODERN_COLORS.primary, strokeWidth: 2 }}
                 />
                 <Bar 
                   dataKey="completati" 
@@ -497,6 +502,7 @@ const BrokerCharts: React.FC<BrokerChartsProps> = ({ stats, documents = [], cred
                   radius={[4, 4, 0, 0]}
                   stroke="rgba(255,255,255,0.8)"
                   strokeWidth={1}
+                  activeBar={{ stroke: MODERN_COLORS.success, strokeWidth: 2 }}
                 />
                 <Bar 
                   dataKey="completatiConProtesti" 
@@ -505,6 +511,7 @@ const BrokerCharts: React.FC<BrokerChartsProps> = ({ stats, documents = [], cred
                   radius={[4, 4, 0, 0]}
                   stroke="rgba(255,255,255,0.8)"
                   strokeWidth={1}
+                  activeBar={{ stroke: '#f97316', strokeWidth: 2 }}
                 />
                 <Bar 
                   dataKey="inAttesa" 
@@ -513,6 +520,7 @@ const BrokerCharts: React.FC<BrokerChartsProps> = ({ stats, documents = [], cred
                   radius={[4, 4, 0, 0]}
                   stroke="rgba(255,255,255,0.8)"
                   strokeWidth={1}
+                  activeBar={{ stroke: MODERN_COLORS.warning, strokeWidth: 2 }}
                 />
               </BarChart>
             </ResponsiveContainer>
