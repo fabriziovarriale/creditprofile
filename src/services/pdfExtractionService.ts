@@ -16,12 +16,12 @@ if (typeof GlobalWorkerOptions !== 'undefined') {
         import.meta.url
       ).toString();
     } catch {
-      // Fallback al CDN se l'import URL fallisce
-      GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+      // Fallback al CDN se l'import URL fallisce - VERSIONE AGGIORNATA 5.4.149
+      GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.149/build/pdf.worker.min.mjs';
     }
   } else {
-    // In produzione, usa CDN stabile
-    GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+    // In produzione, usa CDN stabile - VERSIONE AGGIORNATA 5.4.149
+    GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.149/build/pdf.worker.min.mjs';
   }
 }
 
