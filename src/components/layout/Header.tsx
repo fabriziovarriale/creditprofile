@@ -13,35 +13,16 @@ import {
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import Logo from '@/components/ui/Logo';
-import { Bell } from 'lucide-react';
+import { Bell, X, Check, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Menu } from 'lucide-react';
+import { useNotifications } from '@/contexts/NotificationContext';
 
 interface HeaderProps {
   isSlideOverOpen?: boolean;
   onToggleSlideOver?: () => void;
   showSlideOverToggle?: boolean;
 }
-
-// Mock notifiche
-const mockNotifications = [
-  {
-    id: '1',
-    type: 'document',
-    message: 'Nuovo documento caricato da Marco Rossi',
-    createdAt: '2024-06-10T10:00:00Z',
-    read: false,
-    link: '/broker/documents'
-  },
-  {
-    id: '2',
-    type: 'credit_score',
-    message: 'Credit score pronto per Anna Verdi',
-    createdAt: '2024-06-10T09:30:00Z',
-    read: false,
-    link: '/broker/credit-score'
-  }
-];
 
 const Header: React.FC<HeaderProps> = ({ 
   isSlideOverOpen = false, 
@@ -51,8 +32,14 @@ const Header: React.FC<HeaderProps> = ({
   const { profile, supabase, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState(mockNotifications);
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const { 
+    notifications, 
+    unreadCount, 
+    loading, 
+    markAsRead, 
+    markAllAsRead, 
+    deleteNotification 
+  } = useNotifications();
 
   const handleLogout = async () => {
     Object.keys(localStorage).forEach((key) => {
@@ -75,10 +62,31 @@ const Header: React.FC<HeaderProps> = ({
     window.location.replace('/login');
   };
 
-  const handleNotificationClick = (id: string, link?: string) => {
-    setNotifications(notifications => notifications.map(n => n.id === id ? { ...n, read: true } : n));
+  const handleNotificationClick = async (id: number, link?: string) => {
+    await markAsRead(id);
     if (link) navigate(link);
     setShowNotifications(false);
+  };
+
+  const handleMarkAllAsRead = async () => {
+    await markAllAsRead();
+  };
+
+  const handleDeleteNotification = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await deleteNotification(id);
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (seconds < 60) return 'Adesso';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} min fa`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} ore fa`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)} giorni fa`;
+    return date.toLocaleDateString('it-IT');
   };
 
   const getInitials = (firstName?: string, lastName?: string) => {
@@ -152,22 +160,97 @@ const Header: React.FC<HeaderProps> = ({
               )}
             </button>
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 bg-white border rounded shadow-lg z-50">
-                <div className="p-2 font-semibold border-b">Notifiche</div>
-                <ul>
-                  {notifications.length === 0 ? (
-                    <li className="p-4 text-muted-foreground">Nessuna notifica</li>
+              <div className="absolute right-0 mt-2 w-96 bg-white border rounded-lg shadow-xl z-50 max-h-[600px] flex flex-col">
+                {/* Header */}
+                <div className="p-4 border-b flex items-center justify-between bg-gray-50">
+                  <h3 className="font-semibold text-lg">Notifiche</h3>
+                  <div className="flex items-center gap-2">
+                    {unreadCount > 0 && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={handleMarkAllAsRead}
+                        className="text-xs"
+                      >
+                        <Check className="h-3 w-3 mr-1" />
+                        Segna tutte lette
+                      </Button>
+                    )}
+                    <button
+                      onClick={() => setShowNotifications(false)}
+                      className="p-1 hover:bg-gray-200 rounded"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Lista notifiche */}
+                <div className="overflow-y-auto flex-1">
+                  {loading ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                      Caricamento...
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                      <Bell className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                      <p>Nessuna notifica</p>
+                    </div>
                   ) : (
-                    notifications.map(n => (
-                      <li key={n.id} className={`p-3 border-b last:border-0 ${n.read ? 'bg-gray-50' : 'bg-white'}`}>
-                        <button className="block text-left w-full hover:underline" onClick={() => handleNotificationClick(n.id, n.link)}>
-                          {n.message}
-                        </button>
-                        <div className="text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleString('it-IT')}</div>
-                      </li>
-                    ))
+                    <ul>
+                      {notifications.slice(0, 10).map(n => (
+                        <li 
+                          key={n.id} 
+                          className={`p-4 border-b last:border-0 cursor-pointer transition-colors relative group ${
+                            n.read ? 'bg-gray-50 hover:bg-gray-100' : 'bg-blue-50 hover:bg-blue-100'
+                          }`}
+                          onClick={() => handleNotificationClick(n.id, n.link)}
+                        >
+                          <div className="flex items-start gap-3">
+                            {/* Indicatore non letto */}
+                            {!n.read && (
+                              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
+                            )}
+                            
+                            {/* Contenuto */}
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-sm mb-1">{n.title}</h4>
+                              <p className="text-sm text-gray-600 line-clamp-2">{n.message}</p>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {formatTimeAgo(n.created_at)}
+                              </div>
+                            </div>
+
+                            {/* Pulsante elimina */}
+                            <button
+                              onClick={(e) => handleDeleteNotification(n.id, e)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded flex-shrink-0"
+                              title="Elimina notifica"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
                   )}
-                </ul>
+                </div>
+
+                {/* Footer */}
+                {notifications.length > 0 && (
+                  <div className="p-3 border-t bg-gray-50">
+                    <Button
+                      variant="ghost"
+                      className="w-full text-sm"
+                      onClick={() => {
+                        navigate('/broker/notifications');
+                        setShowNotifications(false);
+                      }}
+                    >
+                      Vedi tutte le notifiche
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>

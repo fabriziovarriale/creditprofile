@@ -42,7 +42,9 @@ import ClientReports from './pages/client/Reports';
 import BrokerLayout from './layouts/BrokerLayout'; 
 import { CreditProfilesProvider } from './pages/broker/CreditProfiles';
 import { AIContextProvider } from './components/providers/AIContextProvider';
+import { NotificationProvider } from './contexts/NotificationContext';
 import Index from './pages/Index';
+import BrokerNotifications from './pages/broker/Notifications';
 
 
 // test
@@ -60,7 +62,7 @@ const router = createBrowserRouter(
       {/* Broker Routes - Protette */}
       <Route 
         path="broker"
-        element={<PrivateRoute><CreditProfilesProvider><AIContextProvider><BrokerLayout /></AIContextProvider></CreditProfilesProvider></PrivateRoute>}
+        element={<PrivateRoute><NotificationProvider><CreditProfilesProvider><AIContextProvider><BrokerLayout /></AIContextProvider></CreditProfilesProvider></NotificationProvider></PrivateRoute>}
       >
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<BrokerDashboard />} />
@@ -69,6 +71,7 @@ const router = createBrowserRouter(
         <Route path="credit-score" element={<CreditScorePage />} />
         <Route path="credit-profiles" element={<CreditProfilesPage />} />
         <Route path="credit-profiles/nuovo" element={<CreditProfileBuilder />} />
+        <Route path="notifications" element={<BrokerNotifications />} />
         <Route path="support" element={<SupportPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="profile" element={<ProfilePage />} />
