@@ -2,7 +2,7 @@
  * Context per gestire le notifiche real-time
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/components/providers/SupabaseProvider';
 import { notificationService, type Notification } from '@/services/notificationService';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -34,15 +34,27 @@ interface NotificationProviderProps {
 }
 
 export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children }) => {
-  const { profile } = useAuth();
+  const { profile, supabase } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
+  const isInitialMount = useRef(true);
+
+  // Imposta il client Supabase nel service quando il provider viene montato
+  React.useEffect(() => {
+    if (supabase) {
+      console.log('🔧 Configurando NotificationService con client Supabase del context');
+      notificationService.setSupabaseClient(supabase);
+    }
+  }, [supabase]);
 
   // Carica notifiche iniziali
   const loadNotifications = useCallback(async () => {
+    console.log('🔄 loadNotifications chiamato, profile?.id:', profile?.id);
+    
     if (!profile?.id) {
+      console.log('⚠️ Nessun profile.id, skip caricamento');
       setNotifications([]);
       setUnreadCount(0);
       setLoading(false);
@@ -51,11 +63,14 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 
     try {
       setLoading(true);
+      console.log('📡 Fetching notifiche per user:', profile.id);
+      
       const [allNotifications, count] = await Promise.all([
         notificationService.getUserNotifications(profile.id, 50),
         notificationService.getUnreadCount(profile.id),
       ]);
 
+      console.log('✅ Notifiche ricevute:', allNotifications.length, 'Non lette:', count);
       setNotifications(allNotifications);
       setUnreadCount(count);
     } catch (error) {
@@ -123,17 +138,30 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 
   // Setup real-time subscription
   useEffect(() => {
+    console.log('🔵 NotificationContext useEffect triggered, profile?.id:', profile?.id);
+    
     if (!profile?.id) {
+      console.log('⚠️ Nessun profile.id nel useEffect, cleanup');
       // Cleanup se non c'è utente
       if (channel) {
         channel.unsubscribe();
         setChannel(null);
       }
+      isInitialMount.current = true; // Reset per il prossimo mount
       return;
     }
 
+    // Reset flag per nuovo utente
+    isInitialMount.current = true;
+
     // Carica notifiche iniziali
+    console.log('📞 Chiamando loadNotifications dal useEffect');
     loadNotifications();
+
+    // Dopo il primo caricamento, abilita i toast
+    const timeoutId = setTimeout(() => {
+      isInitialMount.current = false;
+    }, 1000);
 
     // Subscribe a real-time updates
     const newChannel = notificationService.subscribeToNotifications(
@@ -143,11 +171,16 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         setNotifications(prev => [notification, ...prev]);
         setUnreadCount(prev => prev + 1);
         
-        // Mostra toast per nuova notifica
-        toast.info(notification.title, {
-          description: notification.message,
-          duration: 5000,
-        });
+        // Mostra toast solo dopo il mount iniziale
+        if (!isInitialMount.current) {
+          // Usa queueMicrotask invece di setTimeout per migliore performance
+          queueMicrotask(() => {
+            toast.info(notification.title, {
+              description: notification.message,
+              duration: 5000,
+            });
+          });
+        }
       },
       // On UPDATE (notifica aggiornata)
       (updatedNotification) => {
@@ -176,6 +209,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 
     // Cleanup on unmount
     return () => {
+      clearTimeout(timeoutId);
       if (newChannel) {
         newChannel.unsubscribe();
       }

@@ -2,7 +2,8 @@
  * Servizio per gestire le notifiche
  */
 
-import { supabase } from '@/lib/supabaseClient';
+import { supabase as defaultSupabase } from '@/lib/supabaseClient';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type NotificationType =
   | 'document_uploaded'
@@ -40,12 +41,27 @@ export interface CreateNotificationParams {
 }
 
 class NotificationService {
+  private supabaseClient: SupabaseClient;
+
+  constructor(supabaseClient?: SupabaseClient) {
+    this.supabaseClient = supabaseClient || defaultSupabase;
+  }
+
+  /**
+   * Imposta il client Supabase da usare
+   */
+  setSupabaseClient(client: SupabaseClient) {
+    this.supabaseClient = client;
+    console.log('✅ NotificationService: client Supabase aggiornato');
+  }
+
   /**
    * Ottiene tutte le notifiche per un utente
    */
   async getUserNotifications(userId: string, limit: number = 50): Promise<Notification[]> {
     try {
-      const { data, error } = await supabase
+      console.log('🔍 NotificationService.getUserNotifications chiamato per:', userId);
+      const { data, error } = await this.supabaseClient
         .from('notifications')
         .select('*')
         .eq('user_id', userId)
@@ -57,6 +73,7 @@ class NotificationService {
         return [];
       }
 
+      console.log('✅ NotificationService restituisce:', data?.length, 'notifiche');
       return data || [];
     } catch (error) {
       console.error('❌ Errore generale recupero notifiche:', error);
@@ -69,7 +86,7 @@ class NotificationService {
    */
   async getUnreadNotifications(userId: string): Promise<Notification[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabaseClient
         .from('notifications')
         .select('*')
         .eq('user_id', userId)
@@ -93,7 +110,7 @@ class NotificationService {
    */
   async getUnreadCount(userId: string): Promise<number> {
     try {
-      const { count, error } = await supabase
+      const { count, error } = await this.supabaseClient
         .from('notifications')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
@@ -116,7 +133,7 @@ class NotificationService {
    */
   async createNotification(params: CreateNotificationParams): Promise<Notification | null> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabaseClient
         .from('notifications')
         .insert({
           user_id: params.userId,
@@ -147,7 +164,7 @@ class NotificationService {
    */
   async markAsRead(notificationId: number): Promise<boolean> {
     try {
-      const { error } = await supabase
+      const { error } = await this.supabaseClient
         .from('notifications')
         .update({ read: true, read_at: new Date().toISOString() })
         .eq('id', notificationId);
@@ -169,7 +186,7 @@ class NotificationService {
    */
   async markAllAsRead(userId: string): Promise<boolean> {
     try {
-      const { error } = await supabase
+      const { error } = await this.supabaseClient
         .from('notifications')
         .update({ read: true, read_at: new Date().toISOString() })
         .eq('user_id', userId)
@@ -192,7 +209,7 @@ class NotificationService {
    */
   async deleteNotification(notificationId: number): Promise<boolean> {
     try {
-      const { error } = await supabase
+      const { error } = await this.supabaseClient
         .from('notifications')
         .delete()
         .eq('id', notificationId);
@@ -214,7 +231,7 @@ class NotificationService {
    */
   async deleteAllRead(userId: string): Promise<boolean> {
     try {
-      const { error } = await supabase
+      const { error } = await this.supabaseClient
         .from('notifications')
         .delete()
         .eq('user_id', userId)
@@ -241,7 +258,7 @@ class NotificationService {
     onUpdate: (notification: Notification) => void,
     onDelete: (notificationId: number) => void
   ) {
-    const channel = supabase
+    const channel = this.supabaseClient
       .channel('notifications')
       .on(
         'postgres_changes',

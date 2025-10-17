@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -105,26 +105,23 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
     'Altro (specifica)'
   ];
 
-  const toastRef = useRef<{ type: 'success' | 'error', message: string } | null>(null);
-
-  // Gestisce i toast in useEffect per evitare problemi durante il rendering
-  useEffect(() => {
-    if (toastRef.current) {
-      const { type, message } = toastRef.current;
+  // Funzione helper per mostrare toast in modo sicuro
+  const showToast = useCallback((type: 'success' | 'error', message: string) => {
+    // Usa queueMicrotask per evitare warning React
+    queueMicrotask(() => {
       if (type === 'success') {
         toast.success(message);
       } else {
         toast.error(message);
       }
-      toastRef.current = null;
-    }
-  });
+    });
+  }, []);
 
   const handleFileSelect = (file: File) => {
     // Verifica dimensione file (max 10MB)
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
-      toastRef.current = { type: 'error', message: 'Il file è troppo grande. Dimensione massima: 10MB' };
+      showToast('error', 'Il file è troppo grande. Dimensione massima: 10MB');
       return;
     }
 
@@ -141,12 +138,12 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      toastRef.current = { type: 'error', message: 'Tipo di file non supportato. Usa: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX' };
+      showToast('error', 'Tipo di file non supportato. Usa: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX');
       return;
     }
 
     setFormData(prev => ({ ...prev, file }));
-    toastRef.current = { type: 'success', message: 'File selezionato correttamente' };
+    showToast('success', 'File selezionato correttamente');
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -187,12 +184,12 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
     e.preventDefault();
     
     if (!formData.clientId || !formData.documentType || !formData.file) {
-      toastRef.current = { type: 'error', message: 'Compila tutti i campi obbligatori' };
+      showToast('error', 'Compila tutti i campi obbligatori');
       return;
     }
 
     if (formData.documentType === 'Altro (specifica)' && !formData.customDocumentType) {
-      toastRef.current = { type: 'error', message: 'Specifica il tipo di documento' };
+      showToast('error', 'Specifica il tipo di documento');
       return;
     }
 
@@ -213,14 +210,14 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
         const creditProfile = await getOrCreateCreditProfile(client.id, brokerUser.id);
         
         if (!creditProfile) {
-          toastRef.current = { type: 'error', message: 'Errore: impossibile creare il profilo credito per il cliente' };
+          showToast('error', 'Errore: impossibile creare il profilo credito per il cliente');
           return;
         }
         
         // Crea il documento nel database
         const newDocument = await createDocument({
           credit_profile_id: creditProfile.id,
-          uploaded_by_user_id: client.id, // Il cliente che carica il documento
+          uploaded_by_user_id: brokerUser.id, // Il broker loggato che carica il documento
           document_type: docType,
           file_path: `/uploads/${client.id}/${formData.file.name}`, // Percorso simulato
           file_name: formData.file.name,
@@ -229,7 +226,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
         });
         
         if (!newDocument) {
-          toastRef.current = { type: 'error', message: 'Errore durante il salvataggio del documento nel database' };
+          showToast('error', 'Errore durante il salvataggio del documento nel database');
           return;
         }
         
@@ -249,37 +246,25 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
               // Mostra informazioni estratte nell'toast
               const metadata = extractionResult.content.metadata;
               if (metadata.containsCF) {
-                toastRef.current = { 
-                  type: 'success', 
-                  message: `Documento caricato! Rilevato codice fiscale: ${metadata.detectedCF}` 
-                };
+                showToast('success', `Documento caricato! Rilevato codice fiscale: ${metadata.detectedCF}`);
               } else {
-                toastRef.current = { 
-                  type: 'success', 
-                  message: `Documento caricato! Estratte ${metadata.wordCount} parole per l'analisi AI` 
-                };
+                showToast('success', `Documento caricato! Estratte ${metadata.wordCount} parole per l'analisi AI`);
               }
             } else {
               await markDocumentExtractionFailed(newDocument.id, extractionResult.error || 'Errore sconosciuto');
               console.warn('⚠️ Estrazione PDF fallita:', extractionResult.error);
-              toastRef.current = { 
-                type: 'success', 
-                message: 'Documento caricato! (Estrazione contenuto non riuscita)' 
-              };
+              showToast('success', 'Documento caricato! (Estrazione contenuto non riuscita)');
             }
           } catch (extractionError) {
             console.error('❌ Errore durante estrazione PDF:', extractionError);
             await markDocumentExtractionFailed(newDocument.id, 'Errore tecnico durante estrazione');
-            toastRef.current = { 
-              type: 'success', 
-              message: 'Documento caricato! (Estrazione contenuto non riuscita)' 
-            };
+            showToast('success', 'Documento caricato! (Estrazione contenuto non riuscita)');
           }
         } else {
-          toastRef.current = { type: 'success', message: 'Documento caricato con successo!' };
+          showToast('success', 'Documento caricato con successo!');
         }
       } else {
-        toastRef.current = { type: 'success', message: 'Documento caricato con successo!' };
+        showToast('success', 'Documento caricato con successo!');
       }
       
       // Reset form (mantieni clientId se passato come prop)
@@ -296,7 +281,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
       onClose();
 
     } catch (error) {
-      toastRef.current = { type: 'error', message: 'Errore durante il caricamento del documento' };
+      showToast('error', 'Errore durante il caricamento del documento');
     } finally {
       setIsUploading(false);
     }

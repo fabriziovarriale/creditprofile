@@ -45,6 +45,7 @@ import { AIContextProvider } from './components/providers/AIContextProvider';
 import { NotificationProvider } from './contexts/NotificationContext';
 import Index from './pages/Index';
 import BrokerNotifications from './pages/broker/Notifications';
+import TestNotifications from './pages/broker/TestNotifications';
 
 
 // test
@@ -72,6 +73,7 @@ const router = createBrowserRouter(
         <Route path="credit-profiles" element={<CreditProfilesPage />} />
         <Route path="credit-profiles/nuovo" element={<CreditProfileBuilder />} />
         <Route path="notifications" element={<BrokerNotifications />} />
+        <Route path="notifications/test" element={<TestNotifications />} />
         <Route path="support" element={<SupportPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="profile" element={<ProfilePage />} />

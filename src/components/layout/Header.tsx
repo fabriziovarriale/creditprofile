@@ -236,21 +236,19 @@ const Header: React.FC<HeaderProps> = ({
                   )}
                 </div>
 
-                {/* Footer */}
-                {notifications.length > 0 && (
-                  <div className="p-3 border-t bg-gray-50">
-                    <Button
-                      variant="ghost"
-                      className="w-full text-sm"
-                      onClick={() => {
-                        navigate('/broker/notifications');
-                        setShowNotifications(false);
-                      }}
-                    >
-                      Vedi tutte le notifiche
-                    </Button>
-                  </div>
-                )}
+                {/* Footer - SEMPRE VISIBILE */}
+                <div className="p-3 border-t bg-gray-50">
+                  <Button
+                    variant="default"
+                    className="w-full text-sm"
+                    onClick={() => {
+                      navigate('/broker/notifications');
+                      setShowNotifications(false);
+                    }}
+                  >
+                    📋 Vedi tutte le notifiche
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -273,6 +271,19 @@ const Header: React.FC<HeaderProps> = ({
                   <DropdownMenuItem onClick={() => navigate(profile.role === 'broker' ? '/broker/profile' : '/client/profile')}>
                     Profilo
                   </DropdownMenuItem>
+                  {profile.role === 'broker' && (
+                    <DropdownMenuItem onClick={() => navigate('/broker/notifications')}>
+                      <div className="flex items-center gap-2">
+                        <Bell className="h-4 w-4" />
+                        Notifiche
+                        {unreadCount > 0 && (
+                          <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                            {unreadCount}
+                          </span>
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout} className="text-red-500 hover:!text-red-500 hover:!bg-red-500/10">
                     Logout
